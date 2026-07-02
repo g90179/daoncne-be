@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. 관리자 계정 모델
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+}
+
+// 2. 게시판 모델 (공지사항 등)
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String   @db.LongText
+  authorId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 3. 고객 문의 수집 모델
+model Inquiry {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?
+  contact   String
+  message   String   @db.Text
+  status    String   @default("PENDING") // PENDING, DONE
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,35 @@
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPrismaModule dependencies initialized[39m[38;5;3m +9ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPassportModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJwtModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUsersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAppController {/}:[39m[38;5;3m +2ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/, GET} route[39m[38;5;3m +2ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPostsController {/posts}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/posts, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/posts, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/posts/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/posts/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/login, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUsersController {/users}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users/:id, DELETE} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 168044  - [39m05/08/2026, 6:33:00 AM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +22ms[39m
+[로그인 시도] 이메일: |hello.g901@kakao.com|, 비번: |admin1234!|
+✅ 유저 발견! DB 비밀번호: |admin1234!|
+[로그인 시도] 이메일: |hello.g901@kakao.com|, 비번: |admin1234!|
+✅ 유저 발견! DB 비밀번호: |admin1234!|
+[로그인 시도] 이메일: |hello.g901@kakao.com|, 비번: |admin1234!|
+✅ 유저 발견! DB 비밀번호: |admin1234!|
+[로그인 시도] 이메일: |admin@daon.com|, 비번: |admin1234!|
+✅ 유저 발견! DB 비밀번호: |admin1234!|
+[로그인 시도] 이메일: |hello.g901@kakao.com|, 비번: |admin1234!|
+✅ 유저 발견! DB 비밀번호: |admin1234!|
+[로그인 시도] 이메일: |hello.g901@kakao.com|, 비번: |admin1234!|
+✅ 유저 발견! DB 비밀번호: |admin1234!|
+[로그인 시도] 이메일: |admin@daon.com|, 비번: |admin1234!|
+✅ 유저 발견! DB 비밀번호: |admin1234!|
