@@ -18,12 +18,9 @@ async function bootstrap() {
 
   // /uploads 경로로 들어오는 요청을 uploads 폴더와 연결
   // 빌드 후(dist/) 기준으로 한 칸 위(..)인 /web/uploads 폴더를 바라보게 됩니다.
-  // app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
+  // 이제 타입스크립트가 에러를 뱉지 않고 프리패스로 통과시킵니다!
   app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), { prefix: '/uploads/' });
 
-  // 가비아 필수 사항: 8080 포트 적용
-  const port = process.env.PORT || 8080;
-  await app.listen(port);
-  console.log(`Application is running on port: ${port}`);
+  await app.listen(8080);
 }
 bootstrap();
