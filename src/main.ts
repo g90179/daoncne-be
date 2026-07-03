@@ -1,11 +1,12 @@
 import 'dotenv/config'; // 💡 반드시 최상단에 위치해야 합니다!
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { join } from 'path';
-import * as express from 'express';
+import { NestExpressApplication } from '@nestjs/platform-express'; // 1. 이게 잘 서있는지 확인!
+import { join } from 'path'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // 2. 반드시 create 뒤에 <NestExpressApplication>이 붙어있어야 합니다!
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // 💡 CORS 방어막 해제 설정 추가
   app.enableCors({
