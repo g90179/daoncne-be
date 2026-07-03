@@ -7,10 +7,13 @@ import * as express from 'express';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // CORS 설정 (아까 만든 클라우드플레어 프론트엔드 주소 허용)
+  // 💡 CORS 방어막 해제 설정 추가
   app.enableCors({
-    origin: ['https://daoncne.co.kr', 'http://localhost:3000'], // 프론트엔드 도메인 허용
-    credentials: true,
+    origin: [
+      'http://localhost:5173', // 로컬 개발용 프론트엔드 주소 허용
+      'https://daoncne.co.kr' // 실제 배포될 프로덕션 프론트엔드 주소 허용
+    ],
+    credentials: true, // 쿠키나 인증 헤더를 허용할 경우 필수
   });
 
   // /uploads 경로로 들어오는 요청을 uploads 폴더와 연결
