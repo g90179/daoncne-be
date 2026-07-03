@@ -1,23 +1,23 @@
-import { 
-  Controller, 
-  Post, 
-  Get, 
-  Patch, 
-  Delete, 
-  Body, 
-  Param, 
-  UseInterceptors, 
-  UploadedFiles, 
-  UploadedFile, 
-  Query 
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseInterceptors,
+  UploadedFiles,
+  UploadedFile,
+  Query
 } from '@nestjs/common';
 
-import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express'; 
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
-const API_URL = 'http://101.79.17.58:3001';
+const API_URL = 'https://g90179.gabia.io';
 
 @Controller('posts')
 export class PostsController {
@@ -25,7 +25,7 @@ export class PostsController {
 
   // CKEditor 5 이미지 업로드 전용 엔드포인트
   @Post('upload')
-  @UseInterceptors(FileInterceptor('upload', { 
+  @UseInterceptors(FileInterceptor('upload', {
     storage: diskStorage({
       destination: './uploads',
       filename: (req, file, cb) => {
