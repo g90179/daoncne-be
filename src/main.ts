@@ -1,3 +1,4 @@
+import 'dotenv/config'; // 💡 반드시 최상단에 위치해야 합니다!
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { join } from 'path';
