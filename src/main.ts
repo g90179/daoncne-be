@@ -18,7 +18,8 @@ async function bootstrap() {
 
   // /uploads 경로로 들어오는 요청을 uploads 폴더와 연결
   // 빌드 후(dist/) 기준으로 한 칸 위(..)인 /web/uploads 폴더를 바라보게 됩니다.
-  app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
+  // app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
+  app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), { prefix: '/uploads/' });
 
   // 가비아 필수 사항: 8080 포트 적용
   const port = process.env.PORT || 8080;
