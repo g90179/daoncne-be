@@ -9,7 +9,7 @@ async function bootstrap() {
 
   // CORS 설정 (아까 만든 클라우드플레어 프론트엔드 주소 허용)
   app.enableCors({
-    origin: 'https://daoncne.co.kr',
+    origin: ['https://daoncne.co.kr', 'http://localhost:3000'], // 프론트엔드 도메인 허용
     credentials: true,
   });
 
