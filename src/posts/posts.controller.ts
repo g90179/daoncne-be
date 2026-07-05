@@ -15,7 +15,8 @@ import {
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import * as fs from 'fs'; // ✨ 추가: 파일 삭제용 fs 모듈 전체 임포트
+import * as path from 'path'; // ✨ 변경: path.join과 path.extname을 모두 사용하기 위해 전체 임포트
 
 const API_URL = 'https://g90179.gabia.io';
 
@@ -30,7 +31,7 @@ export class PostsController {
       destination: './uploads',
       filename: (req, file, cb) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${extname(file.originalname)}`);
+        cb(null, `${randomName}${path.extname(file.originalname)}`); // ✨ path.extname으로 변경
       }
     })
   }))
@@ -46,7 +47,7 @@ export class PostsController {
       destination: './uploads',
       filename: (req, file, cb) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${extname(file.originalname)}`);
+        cb(null, `${randomName}${path.extname(file.originalname)}`); // ✨ path.extname으로 변경
       }
     })
   }))
@@ -107,16 +108,14 @@ export class PostsController {
         destination: './uploads',
         filename: (req, file, cb) => {
           const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-          cb(null, `${randomName}${extname(file.originalname)}`);
+          cb(null, `${randomName}${path.extname(file.originalname)}`); // ✨ path.extname으로 변경
         }
     })
   }))
   async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: any[]) {
-    // ⬇️ ✅ 프론트엔드에서 보낸 deletedFileIds 수신
     const { title, content, category, deletedFileIds } = body;
     const updateData: any = { title, content, category };
     
-    // 1. 삭제 타겟 파일 ID 배열 파싱
     let idsToDelete: number[] = [];
     if (deletedFileIds) {
       try {
@@ -126,7 +125,6 @@ export class PostsController {
       }
     }
 
-    // 2. 신규 추가된 파일 리스트 파싱
     const dbFiles = files?.map(f => {
       let type = 'file';
       if (f.mimetype.includes('image')) {
@@ -141,7 +139,6 @@ export class PostsController {
       };
     }) || [];
 
-    // 3. 에디터 본문 첫 번째 이미지 기반 자동 썸네일 재갱신
     const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
     const match = content ? content.match(imgRegex) : null;
 
@@ -157,8 +154,6 @@ export class PostsController {
       });
     }
 
-    // ⬇️ ✅ 4. Prisma 삭제 및 추가 쿼리 조율
-    // 기존 자동 생성 썸네일 파일 혹은 사용자가 명시적으로 '✕'를 누른 파일 ID들을 동시 제거
     const deleteConditions: any[] = [{ name: 'editor_thumbnail' }];
     if (idsToDelete.length > 0) {
       deleteConditions.push({ id: { in: idsToDelete } });
@@ -179,6 +174,37 @@ export class PostsController {
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
-    return this.prisma.post.delete({ where: { id: Number(id) } });
+    const postId = Number(id);
+
+    // 1. 삭제 전, 해당 포스트에 연결된 파일들의 URL 정보를 DB에서 미리 가져옴
+    const postWithFiles = await this.prisma.post.findUnique({
+      where: { id: postId },
+      include: { files: true }
+    });
+
+    if (!postWithFiles) {
+      return { success: false, message: 'Post not found' };
+    }
+
+    // 2. 서버 내 실제 물리 파일 삭제 처리 (이제 fs와 path 모듈이 주입되어 에러 없이 정상 작동합니다)
+    postWithFiles.files.forEach(file => {
+      if (file.url.startsWith('/uploads/')) {
+        const filePath = path.join(__dirname, '..', '..', file.url); 
+        
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            console.error(`Failed to delete server file: ${filePath}`, err);
+          }
+        }
+      }
+    });
+
+    // 3. DB 데이터 연쇄 삭제 진행 (트랜잭션 안전 제어)
+    return this.prisma.$transaction(async (tx) => {
+      await tx.file.deleteMany({ where: { postId: postId } });
+      return tx.post.delete({ where: { id: postId } });
+    });
   }
 }
