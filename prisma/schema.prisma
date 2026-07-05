@@ -51,3 +51,18 @@ model Inquiry {
   status    String   @default("PENDING") // PENDING, DONE
   createdAt DateTime @default(now())
 }
+
+// 4. 회사정보 모델
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String?  // 회사명
+  ceo       String?  // 대표자명
+  bizNumber String?  // 사업자 등록번호
+  address   String?  // 회사 주소
+  phone     String?  // 대표 전화번호
+  email     String?  // 공식 이메일
+  fax       String?  // 팩스 번호
+  lat       Float?   // 위도
+  lng       Float?   // 경도
+  updatedAt DateTime @updatedAt
+}
