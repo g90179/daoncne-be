@@ -11,42 +11,56 @@ const CAPTCHA_SALT = 'daon_cne_captcha_secure_key_2026';
 export class QuotesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createQuoteDto: CreateQuoteDto) {
-    const { honeyPot, pageLoadedAt, captchaAnswer, captchaToken, ...quoteData } = createQuoteDto;
+  // 🤖 캡차 생성기 우회 개편
+  generateCaptcha() {
+    const num1 = Math.floor(Math.random() * 9) + 1;
+    const num2 = Math.floor(Math.random() * 9) + 1;
+    const answer = num1 + num2;
+    const expiry = Date.now() + 5 * 60 * 1000; // 5분 유효
 
-    // 1️⃣ [허니팟 검증] 눈에 안 보이는 가짜 필드에 값이 적혀있다면 100% 로봇
+    const tokenData = `${answer}_${expiry}`;
+    const captchaHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(tokenData).digest('hex');
+
+    // 특수문자가 섞인 통짜 토큰 대신 구조화된 데이터로 리턴
+    return {
+      question: `${num1} + ${num2} = ?`,
+      captchaHash,     // 0-9, a-f로만 구성된 안전한 문자열
+      captchaExpiry: expiry, // 순수 숫자
+    };
+  }
+
+  async create(createQuoteDto: CreateQuoteDto) {
+    const { honeyPot, pageLoadedAt, captchaAnswer, captchaHash, captchaExpiry, ...quoteData } = createQuoteDto;
+
     if (honeyPot && honeyPot.trim() !== '') {
       throw new BadRequestException('비정상적인 접근입니다. (Robot Detected)');
     }
 
-    // 2️⃣ [속도 검증] 페이지 로드 후 제출까지 걸린 시간 계산
-    const duration = (Date.now() - pageLoadedAt) / 1000; // 초 단위 변환
+    const duration = (Date.now() - pageLoadedAt) / 1000;
 
-    // 3초 미만으로 제출했거나, 이미 한 번 의심받아 토큰이 발행된 경우 캡차 필수 검증
-    const isSuspected = duration < 200.0 || captchaToken;
+    // 🔬 검수용 200초 조건 또는 캡차 해시가 넘어왔을 때 의심 모드 가동
+    const isSuspected = duration < 200.0 || captchaHash;
 
     if (isSuspected) {
-      // 로봇으로 의심되는데 정답이나 토큰 중 하나라도 누락되었다면 캡차 요구 응답(Forbidden) 반환
-      if (!captchaToken || !captchaAnswer) {
+      // 3개 필드 중 하나라도 누락되었다면 필수 요구 응답 반환
+      if (!captchaHash || !captchaExpiry || !captchaAnswer) {
         throw new ForbiddenException('CAPTCHA_REQUIRED');
       }
 
-      // 제출된 캡차 값 검증 작업 시작
-      const [submittedHash, expiryStr] = captchaToken.split('.');
-      const expiryTime = parseInt(expiryStr, 10);
-
-      if (Date.now() > expiryTime) {
+      // 시간 만료 검증
+      if (Date.now() > captchaExpiry) {
         throw new BadRequestException('인증 시간이 만료되었습니다. 다시 시도해 주세요.');
       }
 
-      const expectedTokenData = `${captchaAnswer.trim()}_${expiryTime}`;
+      // 정답 재해싱 검증
+      const expectedTokenData = `${captchaAnswer.trim()}_${captchaExpiry}`;
       const expectedHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(expectedTokenData).digest('hex');
 
-      if (submittedHash !== expectedHash) {
+      if (captchaHash !== expectedHash) {
         throw new BadRequestException('자동 등록 방지 코드가 일치하지 않습니다.');
       }
     }
-    // 🟢 일반 인간이거나 캡차를 완벽히 통과한 경우 안심하고 저장
+
     return await this.prisma.quote.create({ data: quoteData });
   }
 

@@ -40,17 +40,23 @@ export class CreateQuoteDto {
 
   @IsString()
   @IsOptional()
-  honeyPot?: string; // 🍯 로봇 낚시용 숨김 필드
+  honeyPot?: string;
 
   @IsNumber()
   @IsNotEmpty()
-  pageLoadedAt: number; // ⏱️ 프론트엔드 페이지 로드 타임스탬프
+  pageLoadedAt: number;
 
   @IsString()
   @IsOptional()
-  captchaAnswer?: string; // 정답 (의심 가동 시에만 필수)
+  captchaAnswer?: string;
 
+  // 🛡️ [우회책] 특수문자 없는 순수 Hex 문자열 필드로 변경
   @IsString()
   @IsOptional()
-  captchaToken?: string;  // 토큰 (의심 가동 시에만 필수)
+  captchaHash?: string;
+
+  // 🛡️ [우회책] 순수 숫자 타임스탬프 필드로 변경
+  @IsNumber()
+  @IsOptional()
+  captchaExpiry?: number;
 }
