@@ -23,12 +23,12 @@ export class QuotesService {
     const duration = (Date.now() - pageLoadedAt) / 1000; // 초 단위 변환
 
     // 3초 미만으로 제출했거나, 이미 한 번 의심받아 토큰이 발행된 경우 캡차 필수 검증
-    const isSuspected = duration < 4.0 || captchaToken;
+    const isSuspected = duration < 200.0 || captchaToken;
 
     if (isSuspected) {
       // 로봇으로 의심되는데 정답이나 토큰 중 하나라도 누락되었다면 캡차 요구 응답(Forbidden) 반환
       if (!captchaToken || !captchaAnswer) {
-        throw new ForbiddenException('CAPTCHA_REQUIRED'); 
+        throw new ForbiddenException('CAPTCHA_REQUIRED');
       }
 
       // 제출된 캡차 값 검증 작업 시작
