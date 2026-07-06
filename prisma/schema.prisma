@@ -70,23 +70,6 @@ model Company {
 
 // 견적문의 게시판
 model Quote {
-  id        Int      @id @default(autoincrement())
-  company   String?
-  name      String
-  phone     String
-  email     String
-  title     String
-  content   String   @db.Text
-  isSecret  Boolean  @default(true)
-  password  String?
-  status    String   @default("접수대기")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-
-// 견적문의 답글 달기
-model Quote {
   id            Int      @id @default(autoincrement())
   company       String?
   name          String
