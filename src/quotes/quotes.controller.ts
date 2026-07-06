@@ -8,12 +8,12 @@ import { UpdateQuoteDto } from './dto/update-quote.dto';
 export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
 
-  @Get('init') // 🛡️ 초기 대기표 발급 라우터
+  @Get('init')
   initToken() {
     return this.quotesService.initToken();
   }
 
-  @Get('quiz') // 🛡️ 캡차 문제 요청 라우터
+  @Get('quiz')
   getQuiz() {
     return this.quotesService.generateCaptcha();
   }
@@ -25,7 +25,7 @@ export class QuotesController {
 
   @Get()
   findAll() {
-    return this.quotesService.findAll();
+    return this.quotesService.findAll(); // { success: true, data: [...] } 가 반환됨
   }
 
   @Get(':id')
