@@ -1,5 +1,5 @@
 // src/quotes/quotes.service.ts
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
