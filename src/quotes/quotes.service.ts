@@ -12,6 +12,7 @@ export class QuotesService {
   constructor(private readonly prisma: PrismaService) {}
 
   // 🤖 캡차 생성기 우회 개편
+  // 🤖 캡차 생성기 스텔스 엔진
   generateCaptcha() {
     const num1 = Math.floor(Math.random() * 9) + 1;
     const num2 = Math.floor(Math.random() * 9) + 1;
@@ -19,48 +20,53 @@ export class QuotesService {
     const expiry = Date.now() + 5 * 60 * 1000; // 5분 유효
 
     const tokenData = `${answer}_${expiry}`;
-    const captchaHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(tokenData).digest('hex');
+    const fullHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(tokenData).digest('hex');
+    const shortCode = fullHash.substring(0, 8); // 64자리를 8자리 평범한 스트링으로 압축 위장
 
-    // 특수문자가 섞인 통짜 토큰 대신 구조화된 데이터로 리턴
     return {
       question: `${num1} + ${num2} = ?`,
-      captchaHash,     // 0-9, a-f로만 구성된 안전한 문자열
-      captchaExpiry: expiry, // 순수 숫자
+      cc: shortCode,
+      exp: expiry,
     };
   }
 
   async create(createQuoteDto: CreateQuoteDto) {
-    const { honeyPot, pageLoadedAt, captchaAnswer, captchaHash, captchaExpiry, ...quoteData } = createQuoteDto;
+    // 🛡️ 스텔스 변수들을 가로채고 순수 DB 데이터(...quoteData)만 분리
+    const { email_confirm, plt, ans, cc, exp, ...quoteData } = createQuoteDto;
 
-    if (honeyPot && honeyPot.trim() !== '') {
-      throw new BadRequestException('비정상적인 접근입니다. (Robot Detected)');
+    // 1️⃣ 허니팟 낚시줄 검증 (일반 이메일 확인창처럼 속임)
+    if (email_confirm && email_confirm.trim() !== '') {
+      throw new BadRequestException('Invalid submission.');
     }
 
-    const duration = (Date.now() - pageLoadedAt) / 1000;
-
-    // 🔬 검수용 200초 조건 또는 캡차 해시가 넘어왔을 때 의심 모드 가동
-    const isSuspected = duration < 200.0 || captchaHash;
+    // 2️⃣ 속도 측정 (단위: 초)
+    const duration = (Date.now() - plt) / 1000;
+    
+    // 현재 검수용으로 설정하신 200초 임계값 정상 작동 유도
+    const isSuspected = duration < 200.0 || cc;
 
     if (isSuspected) {
-      // 3개 필드 중 하나라도 누락되었다면 필수 요구 응답 반환
-      if (!captchaHash || !captchaExpiry || !captchaAnswer) {
+      // 하나라도 누락되었다면 프론트에 캡차 개방 시그널 전송
+      if (!cc || !exp || !ans) {
         throw new ForbiddenException('CAPTCHA_REQUIRED');
       }
 
-      // 시간 만료 검증
-      if (Date.now() > captchaExpiry) {
+      // 캡차 시간 만료 체크
+      if (Date.now() > exp) {
         throw new BadRequestException('인증 시간이 만료되었습니다. 다시 시도해 주세요.');
       }
 
-      // 정답 재해싱 검증
-      const expectedTokenData = `${captchaAnswer.trim()}_${captchaExpiry}`;
-      const expectedHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(expectedTokenData).digest('hex');
+      // 8자리 쇼트 해시 교차 검증
+      const expectedTokenData = `${ans.trim()}_${exp}`;
+      const fullHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(expectedTokenData).digest('hex');
+      const shortCode = fullHash.substring(0, 8);
 
-      if (captchaHash !== expectedHash) {
+      if (cc !== shortCode) {
         throw new BadRequestException('자동 등록 방지 코드가 일치하지 않습니다.');
       }
     }
 
+    // 🟢 모든 검증 통과 시 오염되지 않은 데이터만 안전하게 저장
     return await this.prisma.quote.create({ data: quoteData });
   }
 
