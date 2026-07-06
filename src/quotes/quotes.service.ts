@@ -1,25 +1,23 @@
+// daon-backend/src/quotes/quotes.service.ts
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Quote } from './entities/quote.entity';
+import { PrismaService } from '../prisma/prisma.service'; // 프로젝트 내부 PrismaService 경로에 맞춤
 import { CreateQuoteDto } from './dto/create-quote.dto';
 
 @Injectable()
 export class QuotesService {
-  constructor(
-    @InjectRepository(Quote)
-    private readonly quoteRepository: Repository<Quote>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(createQuoteDto: CreateQuoteDto): Promise<Quote> {
-    const newQuote = this.quoteRepository.create(createQuoteDto);
-    return await this.quoteRepository.save(newQuote);
+  async create(createQuoteDto: CreateQuoteDto) {
+    return await this.prisma.quote.create({
+      data: createQuoteDto,
+    });
   }
 
-  async findAll(): Promise<Quote[]> {
-    // 최신글이 상단에 배치되도록 내림차순 정렬하여 리스트 반환
-    return await this.quoteRepository.find({
-      order: { id: 'DESC' },
+  async findAll() {
+    return await this.prisma.quote.findMany({
+      orderBy: {
+        id: 'desc',
+      },
     });
   }
 }

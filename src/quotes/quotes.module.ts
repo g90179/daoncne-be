@@ -1,11 +1,11 @@
+// daon-backend/src/quotes/quotes.module.ts
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { QuotesService } from './quotes.service';
 import { QuotesController } from './quotes.controller';
-import { Quote } from './entities/quote.entity';
+import { PrismaModule } from '../prisma/prisma.module'; // 프로젝트 내부 PrismaModule 경로에 맞춤
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Quote])],
+  imports: [PrismaModule],
   controllers: [QuotesController],
   providers: [QuotesService],
 })
