@@ -33,4 +33,8 @@ export class CreateQuoteDto {
   @IsString()
   @MinLength(4, { message: '비밀번호는 최소 4자리 이상이어야 합니다.' })
   password?: string;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  privacyAgreement: boolean; // 🔥 추가
 }
