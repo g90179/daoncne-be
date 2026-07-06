@@ -1,5 +1,5 @@
 // daon-backend/src/quotes/quotes.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto'; // 🔑 이 줄이 빠져있을 확률이 높습니다. 추가해 주세요!
