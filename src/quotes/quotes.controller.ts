@@ -1,5 +1,5 @@
 // src/quotes/quotes.controller.ts
-import { Controller, Get, Post, Body, Param, Put, ParseIntPipe, Headers } from '@nestjs/common'; // 🔑 Headers 임포트 추가!
+import { Controller, Get, Post, Body, Param, Put, ParseIntPipe } from '@nestjs/common';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
@@ -8,29 +8,19 @@ import { UpdateQuoteDto } from './dto/update-quote.dto';
 export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
 
-  @Get('captcha')
-  getCaptcha() {
+  @Get('init') // 🛡️ 초기 대기표 발급 라우터
+  initToken() {
+    return this.quotesService.initToken();
+  }
+
+  @Get('quiz') // 🛡️ 캡차 문제 요청 라우터
+  getQuiz() {
     return this.quotesService.generateCaptcha();
   }
 
   @Post()
-  async create(
-    @Body() createQuoteDto: CreateQuoteDto,
-    // 🛡️ 가비아 WAF 우회를 위해 헤더 객체 전체를 통째로 안전하게 가져옵니다.
-    @Headers() headers: Record<string, string>,
-  ) {
-    // HTTP 프로토콜 규칙에 따라 헤더 Key 명칭은 백엔드 내부적으로 자동 소문자 처리됩니다.
-    const plt = headers['x-stealth-plt'];
-    const ans = headers['x-stealth-ans'];
-    const cc = headers['x-stealth-cc'];
-    const exp = headers['x-stealth-exp'];
-
-    return this.quotesService.create(createQuoteDto, {
-      plt: plt ? parseInt(plt, 10) : 0,
-      ans: ans || '',
-      cc: cc || '',
-      exp: exp ? parseInt(exp, 10) : 0,
-    });
+  create(@Body() createQuoteDto: CreateQuoteDto) {
+    return this.quotesService.create(createQuoteDto);
   }
 
   @Get()

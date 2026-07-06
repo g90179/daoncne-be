@@ -3,57 +3,84 @@ import { Injectable, BadRequestException, ForbiddenException, UnauthorizedExcept
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto'; // 🔑 이 줄이 빠져있을 확률이 높습니다. 추가해 주세요!
-import * as crypto from 'crypto';
-
-const CAPTCHA_SALT = 'daon_cne_captcha_secure_key_2026';
 
 @Injectable()
 export class QuotesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // 🛡️ 서버 메모리 보관소 (시간과 정답은 여기서 비밀리에 관리됩니다)
+  private tokensMap = new Map<string, { createdAt: number; captchaSolved: boolean }>();
+  private quizMap = new Map<string, { answer: number; expiresAt: number }>();
+
+  // ① 글쓰기 탭 진입 시 대기표 끊어주기
+  initToken() {
+    const tid = Math.random().toString(36).substring(2, 10); // 평범한 8자리 문자열 생성
+    this.tokensMap.set(tid, { createdAt: Date.now(), captchaSolved: false });
+    
+    // 메모리 누수 방지: 30분 지나면 대기표 자동 파기
+    setTimeout(() => this.tokensMap.delete(tid), 30 * 60 * 1000);
+    return { tid };
+  }
+
   // 🤖 캡차 생성기 우회 개편
-  // 🤖 캡차 생성기 스텔스 엔진
+  // ② 로봇으로 의심될 때만 사칙연산 문제 발급하기
   generateCaptcha() {
     const num1 = Math.floor(Math.random() * 9) + 1;
     const num2 = Math.floor(Math.random() * 9) + 1;
     const answer = num1 + num2;
-    const expiry = Date.now() + 5 * 60 * 1000;
+    
+    const cid = Math.random().toString(36).substring(2, 10);
+    this.quizMap.set(cid, { answer, expiresAt: Date.now() + 5 * 60 * 1000 }); // 5분 유효
 
-    const tokenData = `${answer}_${expiry}`;
-    const fullHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(tokenData).digest('hex');
-    const shortCode = fullHash.substring(0, 8);
+    setTimeout(() => this.quizMap.delete(cid), 5 * 60 * 1000);
 
-    return { question: `${num1} + ${num2} = ?`, cc: shortCode, exp: expiry };
+    return {
+      question: `${num1} + ${num2} = ?`,
+      cid,
+    };
   }
 
-  // 🛡️ 매개변수에 stealthData 구역을 추가합니다.
-  async create(createQuoteDto: CreateQuoteDto, stealthData: { plt: number; ans: string; cc: string; exp: number }) {
-    const { plt, ans, cc, exp } = stealthData;
+  // ③ 글 저장 및 토큰 검증 시스템
+  async create(createQuoteDto: CreateQuoteDto) {
+    // 🔑 [수정] 구조분해 할당에 email_confirm 추가
+    const { tid, cid, ans, email_confirm, ...quoteData } = createQuoteDto;
 
-    // 헤더 기반 속도 및 검증 가동 (200초 검수 기준 유지)
-    const duration = (Date.now() - plt) / 1000;
-    const isSuspected = duration < 200.0 || cc;
+    const token = this.tokensMap.get(tid);
+    if (!token) {
+      throw new BadRequestException('세션이 만료되었습니다. 페이지를 새로고침 해주세요.');
+    }
 
-    if (isSuspected) {
-      if (!cc || !exp || !ans) {
+    // 1️⃣ [수정] 숨겨진 허니팟 인풋을 로봇 매크로가 채웠는지 검증라인 부활
+    if (email_confirm && email_confirm.trim() !== '') {
+      throw new BadRequestException('Invalid submission.');
+    }
+
+    // 작성 속도 계산 (서버 시간 기준)
+    const duration = (Date.now() - token.createdAt) / 1000;
+    
+    // 🔬 검수 임계값 200초 가동 규칙 반영
+    const isSuspected = duration < 200.0 || cid;
+
+    if (isSuspected && !token.captchaSolved) {
+      if (!cid || !ans) {
         throw new ForbiddenException('CAPTCHA_REQUIRED');
       }
 
-      if (Date.now() > exp) {
-        throw new BadRequestException('인증 시간이 만료되었습니다. 다시 시도해 주세요.');
+      const quiz = this.quizMap.get(cid);
+      if (!quiz || Date.now() > quiz.expiresAt) {
+        throw new BadRequestException('인증 시간이 만료되었습니다. 새로운 문제를 풀어주세요.');
       }
 
-      const expectedTokenData = `${ans.trim()}_${exp}`;
-      const fullHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(expectedTokenData).digest('hex');
-      const shortCode = fullHash.substring(0, 8);
-
-      if (cc !== shortCode) {
+      if (parseInt(ans.trim(), 10) !== quiz.answer) {
         throw new BadRequestException('자동 등록 방지 코드가 일치하지 않습니다.');
       }
+
+      token.captchaSolved = true;
+      this.quizMap.delete(cid);
     }
 
-    // 데이터베이스에는 100% 가비아가 허용하는 깨끗한 데이터만 바인딩
-    return await this.prisma.quote.create({ data: createQuoteDto });
+    this.tokensMap.delete(tid);
+    return await this.prisma.quote.create({ data: quoteData });
   }
 
   // 🔒 보안 강화: 목록 조회 시 비밀글은 핵심 민감 정보 블라인드 처리
