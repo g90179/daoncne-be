@@ -86,3 +86,15 @@ model Quote {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+// 메인 슬라이드
+model MainSlide {
+  id          Int      @id @default(autoincrement())
+  title       String   // 배너 대제목
+  description String?  // 배너 간단 설명
+  videoUrl    String   // 영상 파일 경로 또는 외부 스트리밍 URL
+  isExposed   Boolean  @default(false) // 메인 노출 여부 (체크 시 노출)
+  duration    Int      @default(5)     // 슬라이드 유지 시간 (초 단위, 기본값 5초)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
