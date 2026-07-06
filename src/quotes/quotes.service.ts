@@ -3,13 +3,51 @@ import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/co
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+import * as crypto from 'crypto';
+
+const CAPTCHA_SALT = 'daon_cne_captcha_secure_key_2026';
 
 @Injectable()
 export class QuotesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createQuoteDto: CreateQuoteDto) {
-    return await this.prisma.quote.create({ data: createQuoteDto });
+    const { honeyPot, pageLoadedAt, captchaAnswer, captchaToken, ...quoteData } = createQuoteDto;
+
+    // 1️⃣ [허니팟 검증] 눈에 안 보이는 가짜 필드에 값이 적혀있다면 100% 로봇
+    if (honeyPot && honeyPot.trim() !== '') {
+      throw new BadRequestException('비정상적인 접근입니다. (Robot Detected)');
+    }
+
+    // 2️⃣ [속도 검증] 페이지 로드 후 제출까지 걸린 시간 계산
+    const duration = (Date.now() - pageLoadedAt) / 1000; // 초 단위 변환
+
+    // 3초 미만으로 제출했거나, 이미 한 번 의심받아 토큰이 발행된 경우 캡차 필수 검증
+    const isSuspected = duration < 4.0 || captchaToken;
+
+    if (isSuspected) {
+      // 로봇으로 의심되는데 정답이나 토큰 중 하나라도 누락되었다면 캡차 요구 응답(Forbidden) 반환
+      if (!captchaToken || !captchaAnswer) {
+        throw new ForbiddenException('CAPTCHA_REQUIRED'); 
+      }
+
+      // 제출된 캡차 값 검증 작업 시작
+      const [submittedHash, expiryStr] = captchaToken.split('.');
+      const expiryTime = parseInt(expiryStr, 10);
+
+      if (Date.now() > expiryTime) {
+        throw new BadRequestException('인증 시간이 만료되었습니다. 다시 시도해 주세요.');
+      }
+
+      const expectedTokenData = `${captchaAnswer.trim()}_${expiryTime}`;
+      const expectedHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(expectedTokenData).digest('hex');
+
+      if (submittedHash !== expectedHash) {
+        throw new BadRequestException('자동 등록 방지 코드가 일치하지 않습니다.');
+      }
+    }
+    // 🟢 일반 인간이거나 캡차를 완벽히 통과한 경우 안심하고 저장
+    return await this.prisma.quote.create({ data: quoteData });
   }
 
   // 🔒 보안 강화: 목록 조회 시 비밀글은 핵심 민감 정보 블라인드 처리
