@@ -1,8 +1,7 @@
-// src/quotes/quotes.service.ts
+// daon-backend/src/quotes/quotes.service.ts
 import { Injectable, BadRequestException, ForbiddenException, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
-import { UpdateQuoteDto } from './dto/update-quote.dto';
 import * as crypto from 'crypto';
 
 const CAPTCHA_SALT = 'daon_cne_captcha_secure_key_2026';
@@ -17,46 +16,32 @@ export class QuotesService {
     const num1 = Math.floor(Math.random() * 9) + 1;
     const num2 = Math.floor(Math.random() * 9) + 1;
     const answer = num1 + num2;
-    const expiry = Date.now() + 5 * 60 * 1000; // 5분 유효
+    const expiry = Date.now() + 5 * 60 * 1000;
 
     const tokenData = `${answer}_${expiry}`;
     const fullHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(tokenData).digest('hex');
-    const shortCode = fullHash.substring(0, 8); // 64자리를 8자리 평범한 스트링으로 압축 위장
+    const shortCode = fullHash.substring(0, 8);
 
-    return {
-      question: `${num1} + ${num2} = ?`,
-      cc: shortCode,
-      exp: expiry,
-    };
+    return { question: `${num1} + ${num2} = ?`, cc: shortCode, exp: expiry };
   }
 
-  async create(createQuoteDto: CreateQuoteDto) {
-    // 🛡️ 스텔스 변수들을 가로채고 순수 DB 데이터(...quoteData)만 분리
-    const { email_confirm, plt, ans, cc, exp, ...quoteData } = createQuoteDto;
+  // 🛡️ 매개변수에 stealthData 구역을 추가합니다.
+  async create(createQuoteDto: CreateQuoteDto, stealthData: { plt: number; ans: string; cc: string; exp: number }) {
+    const { plt, ans, cc, exp } = stealthData;
 
-    // 1️⃣ 허니팟 낚시줄 검증 (일반 이메일 확인창처럼 속임)
-    if (email_confirm && email_confirm.trim() !== '') {
-      throw new BadRequestException('Invalid submission.');
-    }
-
-    // 2️⃣ 속도 측정 (단위: 초)
+    // 헤더 기반 속도 및 검증 가동 (200초 검수 기준 유지)
     const duration = (Date.now() - plt) / 1000;
-    
-    // 현재 검수용으로 설정하신 200초 임계값 정상 작동 유도
     const isSuspected = duration < 200.0 || cc;
 
     if (isSuspected) {
-      // 하나라도 누락되었다면 프론트에 캡차 개방 시그널 전송
       if (!cc || !exp || !ans) {
         throw new ForbiddenException('CAPTCHA_REQUIRED');
       }
 
-      // 캡차 시간 만료 체크
       if (Date.now() > exp) {
         throw new BadRequestException('인증 시간이 만료되었습니다. 다시 시도해 주세요.');
       }
 
-      // 8자리 쇼트 해시 교차 검증
       const expectedTokenData = `${ans.trim()}_${exp}`;
       const fullHash = crypto.createHmac('sha256', CAPTCHA_SALT).update(expectedTokenData).digest('hex');
       const shortCode = fullHash.substring(0, 8);
@@ -66,8 +51,8 @@ export class QuotesService {
       }
     }
 
-    // 🟢 모든 검증 통과 시 오염되지 않은 데이터만 안전하게 저장
-    return await this.prisma.quote.create({ data: quoteData });
+    // 데이터베이스에는 100% 가비아가 허용하는 깨끗한 데이터만 바인딩
+    return await this.prisma.quote.create({ data: createQuoteDto });
   }
 
   // 🔒 보안 강화: 목록 조회 시 비밀글은 핵심 민감 정보 블라인드 처리
