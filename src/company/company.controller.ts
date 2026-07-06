@@ -21,6 +21,7 @@ export class CompanyController {
       ceo?: string;
       bizNumber?: string;
       address?: string;
+      addressDetail?: string; // 상세주소 필드 추가
       phone?: string;
       email?: string;
       fax?: string;
