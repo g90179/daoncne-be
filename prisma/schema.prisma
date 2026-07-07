@@ -1,7 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// daon-backend\prisma\schema.prisma
 
 generator client {
   provider = "prisma-client-js"
@@ -12,13 +9,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. 관리자 계정 모델
+// 1. 관리자 계정 모델 (계정 정보 수정 기능 대응 규격)
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   name      String?
-  role      String   @default("ADMIN")
+  phone     String?  // 🔑 추가: 전화번호 정보 컬럼
+  role      String   @default("일반 관리자") // 🔑 변경: 등급 정보 기본값을 프론트엔드 기본 핏에 일치 ("일반 관리자", "최고 관리자")
   createdAt DateTime @default(now())
 }
 
@@ -54,37 +52,37 @@ model Inquiry {
 
 // 4. 회사정보 모델
 model Company {
-  id           Int      @id @default(autoincrement())
-  name         String?
-  ceo          String?
-  bizNumber    String?
-  address      String?  // 도로명 주소 (예: 서울 강남구 도곡로 222)
-  addressDetail String? // ✅ 추가: 상세주소 (예: 3층 다온씨엔이)
-  phone        String?
-  email        String?
-  fax          String?
-  lat          Float?
-  lng          Float?
-  updatedAt    DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  name          String?
+  ceo           String?
+  bizNumber     String?
+  address       String?  // 도로명 주소 (예: 서울 강남구 도곡로 222)
+  addressDetail String? // 상세주소 (예: 3층 다온씨엔이)
+  phone         String?
+  email         String?
+  fax           String?
+  lat           Float?
+  lng           Float?
+  updatedAt     DateTime @updatedAt
 }
 
 // 견적문의 게시판
 model Quote {
-  id               Int      @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   company          String?
   name             String
   phone            String
   email            String
   title            String
-  content          String   @db.Text
-  isSecret         Boolean  @default(true)
+  content          String    @db.Text
+  isSecret         Boolean   @default(true)
   password         String?
-  status           String   @default("접수대기")
-  reply            String?  @db.Text
+  status           String    @default("접수대기")
+  reply            String?   @db.Text
   replyAt          DateTime?
-  privacyAgreement Boolean  @default(false) // 🔥 [추가] 개인정보 동의 여부 필드
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  privacyAgreement Boolean   @default(false) // 개인정보 동의 여부 필드
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 // 메인 슬라이드

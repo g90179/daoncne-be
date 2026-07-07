@@ -1,38 +1,46 @@
+// daon-backend/src/auth/auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service'; // PrismaService 임포트 확인
+import { UsersService } from '../users/users.service';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
+  private readonly jwtSecret = 'wjdtjddksqkqh';
+
   constructor(
-    private prisma: PrismaService, // UsersService 대신 PrismaService를 직접 주입
+    private usersService: UsersService,
     private jwtService: JwtService,
   ) {}
 
+  // 로그인 및 2단계 토큰 발급
   async login(email: string, pass: string) {
-    console.log(`[로그인 시도] 이메일: |${email}|, 비번: |${pass}|`);
+    const user = await this.usersService.findOneByEmail(email);
+    if (!user) throw new UnauthorizedException('존재하지 않는 계정입니다.');
 
-    // this.usersService 대신 직접 prisma 호출 (현재 상황에서 가장 확실함)
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
+    // bcrypt 비밀번호 대조 검증
+    const isMatch = await bcrypt.compare(pass, user.password);
+    if (!isMatch) throw new UnauthorizedException('비밀번호가 일치하지 않습니다.');
 
-    if (!user) {
-      console.log('❌ 결과: DB에서 해당 이메일의 사용자를 찾지 못했습니다.');
-      throw new UnauthorizedException('이메일 또는 비밀번호가 잘못되었습니다.');
-    }
+    const payload = { sub: user.id, email: user.email, role: user.role };
 
-    console.log(`✅ 유저 발견! DB 비밀번호: |${user.password}|`);
-
-    if (user.password !== pass) {
-      console.log('❌ 결과: 비밀번호 불일치 (문자열 비교 실패)');
-      console.log(`- 입력 비번 길이: ${pass.length}, DB 비번 길이: ${user.password.length}`);
-      throw new UnauthorizedException('이메일 또는 비밀번호가 잘못되었습니다.');
-    }
-
-    const payload = { sub: user.id, email: user.email };
     return {
-      access_token: await this.jwtService.signAsync(payload),
+      access_token: this.jwtService.sign(payload, { secret: this.jwtSecret, expiresIn: '2h' }),
+      refresh_token: this.jwtService.sign(payload, { secret: this.jwtSecret, expiresIn: '30d' }),
     };
+  }
+
+  // 리프레시 토큰을 이용한 액세스 토큰 갱신
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, { secret: this.jwtSecret });
+      const newPayload = { sub: payload.sub, email: payload.email, role: payload.role };
+      
+      return {
+        access_token: this.jwtService.sign(newPayload, { secret: this.jwtSecret, expiresIn: '2h' }),
+      };
+    } catch (e) {
+      throw new UnauthorizedException('만료되었거나 변조된 리프레시 토큰입니다.');
+    }
   }
 }
