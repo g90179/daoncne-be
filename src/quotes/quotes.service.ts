@@ -54,7 +54,7 @@ export class QuotesService {
     }
 
     const duration = (Date.now() - token.createdAt) / 1000;
-    const isSuspected = duration < 200.0 || cid; // 🔬 200초 검수 조건 유지
+    const isSuspected = duration < 13.0 || cid; // 🔬 200초 검수 조건 유지
 
     if (isSuspected && !token.captchaSolved) {
       if (!cid || !ans) {
