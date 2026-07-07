@@ -19,10 +19,6 @@ export class MainSlidesController {
       storage: diskStorage({
         destination: (req, file, cb) => {
           const uploadPath = './uploads/slides';
-          // 폴더가 없으면 에러 방지를 위해 자동 생성
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
           cb(null, uploadPath);
         },
         filename: (req, file, cb) => {
