@@ -2,11 +2,15 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
-import { UpdateQuoteDto } from './dto/update-quote.dto'; // 🔑 이 줄이 빠져있을 확률이 높습니다. 추가해 주세요!
+import { UpdateQuoteDto } from './dto/update-quote.dto'; 
+import { MailService } from '../mail/mail.service'; // 🔑 신규 메일 서비스 장착
 
 @Injectable()
 export class QuotesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService // 🔑 메일 서비스 의존성 주입 완료
+  ) {}
 
   // 🛡️ 서버 메모리 보관소 (시간과 정답은 여기서 비밀리에 관리됩니다)
   private tokensMap = new Map<string, { createdAt: number; captchaSolved: boolean }>();
@@ -35,7 +39,7 @@ export class QuotesService {
     return { question: `${num1} + ${num2} = ?`, cid };
   }
 
-  // ③ 글 저장 및 토큰 검증 시스템
+  // ③ 글 저장 및 토큰 검증 시스템 + 📧 실시간 관리자 알림 메일 발송
   // 🛡️ 가비아 웹서버 우회: 에러 발생 시에도 HTTP 200 코드로 데이터 전달
   async create(createQuoteDto: CreateQuoteDto) {
     const { tid, cid, ans, email_confirm, ...quoteData } = createQuoteDto;
@@ -73,8 +77,28 @@ export class QuotesService {
 
     try {
       this.tokensMap.delete(tid);
+      
+      // A. 데이터베이스에 문의글 정상 저장 선행
       const result = await this.prisma.quote.create({ data: quoteData });
+
+      // 📧 B. [신규 이식] 회사 대표 이메일 자동 추적 및 실시간 메일 릴레이 가동
+      try {
+        // 회사 정보(Company 테이블)에서 입력된 대표 기본 설정 레코드 로드
+        const companyInfo = await this.prisma.company.findFirst();
+        
+        // 회사 정보 문서가 데이터베이스에 실재하고, 대표 이메일(email)이 공백 없이 등록되어 있다면 발송 실행
+        if (companyInfo && companyInfo.email && companyInfo.email.trim() !== '') {
+          await this.mailService.sendQuoteNotification(companyInfo.email, result);
+        }
+      } catch (mailError) {
+        // 🛡️ 중요 방어선: SMTP 통신 방화벽 차단이나 계정 오타로 이메일 전송이 실패하더라도,
+        // 이미 DB에 저장 완료된 고객의 소중한 문의글 프로세스가 롤백(취소)되거나 에러 페이지로 튕기지 않도록 로그만 남깁니다.
+        console.error('견적 실시간 알림 이메일 전송 중 서버/통신 예외 발생:', mailError);
+      }
+
+      // 최종 성공 구조체 반환
       return { success: true, data: result };
+
     } catch (dbError) {
       return { success: false, message: '데이터베이스 저장 실패. 입력값을 확인해 주세요.' };
     }
@@ -99,6 +123,13 @@ export class QuotesService {
       console.error('Prisma 목록 조회 에러:', err);
       return { success: false, data: [], message: '목록을 불러오는 중 시스템 오류가 발생했습니다.' };
     }
+  }
+
+  // 🔍 단일 상세 조회 (관리자 전용)
+  async findOne(id: number) {
+    const quote = await this.prisma.quote.findUnique({ where: { id } });
+    if (!quote) throw new NotFoundException('해당 문의글을 찾을 수 없습니다.');
+    return quote;
   }
 
   // 🔍 단일 상세 조회 (관리자 전용)
