@@ -38,7 +38,7 @@ export class AuthService {
   async refresh(refreshToken: string) {
     try {
       // 리프레시 토큰 복호화 및 위변조 서명 검증
-      const payload = this.jwtService.verify(refreshToken, { secret: this.secret });
+      const payload = this.jwtService.verify(refreshToken, { secret: this.jwtSecret });
       
       // 🔑 [핵심 수정] 토큰 안의 옛날 데이터 대신, DB에서 현재 최신 유저 상태를 특수 조회합니다.
       const user = await this.usersService.findOneByEmail(payload.email);
