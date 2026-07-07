@@ -32,4 +32,10 @@ export class CompanyController {
   ) {
     return this.companyService.upsertCompanyInfo(body);
   }
+
+  // 🔑 [신규 추가] 국세청 조회용 API 주소 맵핑
+  @Get('nts-check/:bizNumber')
+  verifyBusiness(@Param('bizNumber') bizNumber: string) {
+    return this.companyService.checkNtsStatus(bizNumber);
+  }
 }
