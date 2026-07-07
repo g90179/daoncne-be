@@ -132,13 +132,6 @@ export class QuotesService {
     return quote;
   }
 
-  // 🔍 단일 상세 조회 (관리자 전용)
-  async findOne(id: number) {
-    const quote = await this.prisma.quote.findUnique({ where: { id } });
-    if (!quote) throw new NotFoundException('해당 문의글을 찾을 수 없습니다.');
-    return quote;
-  }
-
   // 🔑 비밀번호 검증 후 상세 데이터 반환 (작성자용)
   async verifyAndPassword(id: number, password: string) {
     const quote = await this.prisma.quote.findUnique({ where: { id } });
