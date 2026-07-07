@@ -8,27 +8,13 @@ export class CompanyController {
   constructor(private readonly companyService: CompanyService) {}
 
   @Get()
-  async getCompany() {
-    return this.companyService.getCompanyInfo();
+  getCompany() {
+    return this.companyService.findOne();
   }
 
   @Post()
-  // @UseGuards(JwtAuthGuard) // ✅ 로그인한 관리자만 저장 가능하도록 보호하려면 주석 해제
-  async saveCompany(
-    @Body()
-    body: {
-      name?: string;
-      ceo?: string;
-      bizNumber?: string;
-      address?: string;
-      addressDetail?: string; // 상세주소 필드 추가
-      phone?: string;
-      email?: string;
-      fax?: string;
-      lat?: number;
-      lng?: number;
-    },
-  ) {
-    return this.companyService.upsertCompanyInfo(body);
+  @UseGuards(JwtAuthGuard)
+  saveCompany(@Body() dto: any) {
+    return this.companyService.upsert(dto);
   }
 }
