@@ -13,10 +13,14 @@ export class UsersService {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(data.password, salt);
 
+    // 🔑 저장 전 전화번호 하이픈 제거
+    const cleanPhone = data.phone ? data.phone.replace(/-/g, '') : data.phone;
+
     return this.prisma.user.create({
       data: {
         ...data,
         password: hashedPassword,
+        phone: cleanPhone,
       },
     });
   }
@@ -28,6 +32,11 @@ export class UsersService {
     if (updateData.password && typeof updateData.password === 'string') {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(updateData.password, salt);
+    }
+
+    // 🔑 수정 저장 전 전화번호 하이픈 제거
+    if (updateData.phone && typeof updateData.phone === 'string') {
+      updateData.phone = updateData.phone.replace(/-/g, '');
     }
 
     return this.prisma.user.update({
