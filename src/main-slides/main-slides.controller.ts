@@ -1,6 +1,6 @@
 //daon-backend\src\main-slides\main-slides.controller.ts
 import { Controller, Get, Post, Body, Param, Put, Delete, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-multer';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
