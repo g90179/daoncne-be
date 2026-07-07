@@ -1,39 +1,65 @@
 // daon-backend/src/users/users.service.ts
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
-import * as bcrypt from 'bcryptjs';
+import { PrismaService } from '../prisma/prisma.service'; // 🌟 프로젝트의 PrismaService 실제 경로에 맞게 수정해 주세요
+import { User, Prisma } from '@prisma/client';
+import * as bcrypt from 'bcryptjs'; // 🔑 아까 교체한 bcryptjs 사용
 
 @Injectable()
 export class UsersService {
-  constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async create(userData: Partial<User>) {
-    // 신규 가입 시 비밀번호 암호화 후 적재
+  // 👤 신규 계정 생성 (비밀번호 암호화 포함)
+  async create(data: Prisma.UserCreateInput): Promise<User> {
     const salt = await bcrypt.genSalt(10);
-    userData.password = await bcrypt.hash(userData.password, salt);
-    return this.usersRepository.save(userData);
+    const hashedPassword = await bcrypt.hash(data.password, salt);
+    
+    return this.prisma.user.create({
+      data: {
+        ...data,
+        password: hashedPassword,
+      },
+    });
   }
 
-  async update(id: number, updateData: Partial<User>) {
-    // 패스워드 변경 요청이 들어온 경우에만 선별적 암호화 가동
-    if (updateData.password) {
+  // 🛠️ 계정 정보 수정 (비밀번호 입력 시만 선별적 암호화)
+  async update(id: number, data: Prisma.UserUpdateInput): Promise<User> {
+    const updateData = { ...data };
+
+    if (updateData.password && typeof updateData.password === 'string') {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(updateData.password, salt);
     }
-    await this.usersRepository.update(id, updateData);
-    return this.usersRepository.findOneBy({ id });
+
+    return this.prisma.user.update({
+      where: { id },
+      data: updateData,
+    });
   }
 
+  // 📋 전체 관리자 리스트 조회 (보안을 위해 패스워드 필드는 제외하고 전송)
   async findAll() {
-    return this.usersRepository.find({ select: ['id', 'email', 'phone', 'role'] });
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+      },
+    });
   }
 
-  async findOneByEmail(email: string) {
-    return this.usersRepository.findOneBy({ email });
+  // 🔍 로그인 검증용 단일 이메일 조회 (패스워드 포함 복구)
+  async findOneByEmail(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  // ❌ 계정 삭제
+  async remove(id: number) {
+    return this.prisma.user.delete({
+      where: { id },
+    });
   }
 }
