@@ -89,6 +89,12 @@ export class QuotesService {
         // 회사 정보 문서가 데이터베이스에 실재하고, 대표 이메일(email)이 공백 없이 등록되어 있다면 발송 실행
         if (companyInfo && companyInfo.email && companyInfo.email.trim() !== '') {
           await this.mailService.sendQuoteNotification(companyInfo.email, result);
+
+          // 🔑 [신규 추가] 메일 전송이 완벽히 끝났을 때 터미널에 초록색 체크와 함께 띄울 성공 로그!
+          console.log(`✅ [이메일 발송 성공] 관리자 계정(${companyInfo.email})으로 알림을 보냈습니다.`);
+        } else {
+          // 🔑 [신규 추가] 혹시 DB에 대표 이메일이 등록 안 되어 있을 때를 위한 로그
+          console.log(`⚠️ [이메일 발송 건너뜀] Company 테이블에 대표 이메일 주소가 비어있습니다.`);
         }
       } catch (mailError) {
         // 🛡️ 중요 방어선: SMTP 통신 방화벽 차단이나 계정 오타로 이메일 전송이 실패하더라도,
