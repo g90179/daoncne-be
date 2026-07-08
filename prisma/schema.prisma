@@ -17,6 +17,11 @@ model User {
   name      String?
   phone     String?  // 🔑 추가: 전화번호 정보 컬럼
   role      String   @default("일반 관리자") // 🔑 변경: 등급 정보 기본값을 프론트엔드 기본 핏에 일치 ("일반 관리자", "최고 관리자")
+  
+  // 🔑 [신규 추가] 5분 비밀번호 리셋용 인스턴스 키 관련 스펙
+  resetKey        String?   @db.VarChar(8)
+  resetKeyExpires DateTime?
+
   createdAt DateTime @default(now())
 }
 

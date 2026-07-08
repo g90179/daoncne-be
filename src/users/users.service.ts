@@ -1,8 +1,8 @@
 // daon-backend/src/users/users.service.ts
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service'; // 🌟 프로젝트의 PrismaService 실제 경로에 맞게 수정해 주세요
+import { PrismaService } from '../prisma/prisma.service'; 
 import { User, Prisma } from '@prisma/client';
-import * as bcrypt from 'bcryptjs'; // 🔑 아까 교체한 bcryptjs 사용
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
@@ -70,6 +70,29 @@ export class UsersService {
   async remove(id: number) {
     return this.prisma.user.delete({
       where: { id },
+    });
+  }
+
+  // 🔑 [신규 이식 1] 5분 유효 인스턴스 키 발급 시 DB 스냅샷 갱신
+  async updateResetKey(userId: number, resetKey: string, expiresAt: Date): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        resetKey,
+        resetKeyExpires: expiresAt,
+      },
+    });
+  }
+
+  // 🔑 [신규 이식 2] 비밀번호 최종 변경 시 암호화된 패스워드 주입 및 인증 키 일제 청소(null)
+  async updatePasswordAndClearResetKey(userId: number, hashedPassword: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        resetKey: null,
+        resetKeyExpires: null,
+      },
     });
   }
 }

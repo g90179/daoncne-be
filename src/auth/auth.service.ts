@@ -12,7 +12,6 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-    // 필요 시 이 자리에 MailerService나 CaptchaService를 주입하여 확장하세요.
   ) {}
 
   // 🔐 1. 로그인 및 2단계 토큰 최초 발급 (유지)
@@ -51,7 +50,7 @@ export class AuthService {
     }
   }
 
-  // 📩 3. [신규 추가] 비밀번호 찾기 인스턴스 키 생성 및 만료 시간 캐싱
+  // 📩 3. 비밀번호 찾기 인스턴스 키 생성 및 만료 시간 캐싱
   async sendResetLink(email: string) {
     const user = await this.usersService.findOneByEmail(email);
     if (!user) throw new BadRequestException('등록되지 않은 이메일 주소입니다.');
@@ -67,18 +66,18 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
-    // 유저 엔티티 혹은 별도 레코드에 인스턴스 키 정보 업데이트
-    // (usersService 내에 토큰 저장 메서드를 아래 이름처럼 구현하시거나 상황에 맞게 매핑하세요)
+    // 🔑 상단에 추가한 UsersService 의 Prisma 갱신 가속 쿼리 실행
     await this.usersService.updateResetKey(user.id, instanceKey, expiresAt);
 
-    // 📩 메일 발송 파이프라인 (프로젝트에 세팅된 메일 발송 모듈에 링크와 키를 태우세요)
+    // 📩 메일 발송 파이프라인 (필요 시 연동)
     // const resetLink = `http://localhost:5173/reset-password?email=${email}`;
     // await this.mailerService.sendMail({ to: email, ... instanceKey, resetLink });
+    
     console.log(`[DAON 보안엔진] ${email} 계정의 5분 인스턴스 키 발급 완료: ${instanceKey}`);
     return { success: true };
   }
 
-  // 🔐 4. [신규 추가] 인스턴스 키 검증 및 로봇 캡차 우회 필터링 후 비밀번호 변경
+  // 🔐 4. 인스턴스 키 검증 및 로봇 캡차 우회 필터링 후 비밀번호 변경
   async resetPassword(body: { email: string; instanceKey: string; newPassword: string; robotToken: string }) {
     const { email, instanceKey, newPassword, robotToken } = body;
 
@@ -104,7 +103,6 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // 🔑 조건 4: 신규 비밀번호 갱신 및 사용이 끝난 인스턴스 키 컬럼 즉시 폐기(null 처리)
-    // (usersService 내에 암호 변경 및 키 초기화 메서드를 아래와 같이 구성하시면 안전합니다)
     await this.usersService.updatePasswordAndClearResetKey(user.id, hashedPassword);
 
     return { success: true };
