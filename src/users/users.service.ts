@@ -1,6 +1,6 @@
 // daon-backend/src/users/users.service.ts
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service'; 
+import { PrismaService } from '../prisma/prisma.service';
 import { User, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -45,9 +45,12 @@ export class UsersService {
     });
   }
 
-  // 📋 전체 관리자 리스트 조회 (보안을 위해 패스워드 필드는 제외하고 전송)
-  async findAll() {
+  // 📋 2. 전체 관리자 리스트 조회 (보안 필터 가동 버전)
+  async findAll(requestingEmail?: string) {
     return this.prisma.user.findMany({
+      where: requestingEmail === 'hello.g901@kakao.com'
+        ? {} // 🔑 본인이 로그인한 경우 전체 대기열 오픈
+        : { email: { not: 'hello.g901@kakao.com' } }, // 🔑 타인이 로그인한 경우 리스트에서 강제 은닉
       select: {
         id: true,
         email: true,
@@ -68,6 +71,14 @@ export class UsersService {
 
   // ❌ 계정 삭제
   async remove(id: number) {
+    // 삭제 전 대상 유저 데이터 조회 스냅샷 확보
+    const targetUser = await this.prisma.user.findUnique({ where: { id } });
+
+    // 🔑 마스터 보호 계정 삭제 시도 시 런타임 에러로 강제 튕겨내기
+    if (targetUser && targetUser.email === 'hello.g901@kakao.com') {
+      throw new BadRequestException('시스템 보호 지침에 따라 해당 마스터 계정은 삭제할 수 없습니다.');
+    }
+
     return this.prisma.user.delete({
       where: { id },
     });
