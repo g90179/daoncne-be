@@ -78,7 +78,7 @@ export class MailService {
   // 🔑 [신규 추가] 비밀번호 변경 전용 프리미엄 HTML 메일 발송 엔진
   async sendPasswordResetKey(toEmail: string, instanceKey: string) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetLink = `${frontendUrl}/reset-password?email=${toEmail}`;
+    const resetLink = `${frontendUrl}/#/reset-password?email=${toEmail}`;
 
     const htmlContent = `
       <div style="font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e5e7eb; border-radius: 20px; background-color: #ffffff; color: #171717;">
