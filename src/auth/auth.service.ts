@@ -68,28 +68,9 @@ export class AuthService {
 
     await this.usersService.updateResetKey(user.id, instanceKey, expiresAt);
 
-    // 🔑 [메일 발송 인프라 가동] 
-    // 성현 님의 mailService 내부에 구현된 함수명(예: sendMail 또는 sendResetPassword 등)과 
-    // 파라미터 구조에 맞게 커스텀해 주세요.
+    // 🔑 [수정 마감] 존재하지 않던 sendMail 대신 새로 이식한 전용 발송 트랜스포터 호출 실행!
     try {
-      const resetLink = `http://localhost:5173/reset-password?email=${email}`;
-      
-      // 만약 sendMail 메서드가 정의되어 있다면 아래와 같이 연동합니다.
-      await this.mailService.sendMail({
-        to: email,
-        subject: '[DAON CNE] 관리자 비밀번호 재설정 인증키 발급',
-        html: `
-          <div style="font-family: sans-serif; max-width: 480px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 20px;">
-            <h2 style="color: #1e3a8a; font-size: 20px; font-weight: 800; margin-bottom: 8px;">비밀번호 찾기 인증</h2>
-            <p style="color: #64748b; font-size: 13px;">아래의 8자리 인스턴스 키를 입력창에 기입하여 인증을 완료하세요.</p>
-            <div style="background: #f8fafc; padding: 16px; border-radius: 12px; font-family: monospace; font-size: 18px; font-weight: bold; text-align: center; letter-spacing: 4px; color: #3b82f6; margin: 20px 0; border: 1px solid #edf2f7;">
-              ${instanceKey}
-            </div>
-            <a href="${resetLink}" style="display: block; background: #3b82f6; color: white; text-align: center; padding: 12px; border-radius: 12px; text-decoration: none; font-size: 13px; font-weight: bold;">비밀번호 재설정 페이지로 이동</a>
-            <p style="font-size: 11px; color: #94a3b8; margin-top: 16px; text-align: center;">* 본 인증키와 변경 링크는 보안을 위해 5분간만 유효합니다.</p>
-          </div>
-        `
-      });
+      await this.mailService.sendPasswordResetKey(email, instanceKey);
     } catch (mailError) {
       console.error('메일 서버 발송 중 에러 발생:', mailError);
       throw new BadRequestException('메일 발송 인프라 내부 에러가 발생했습니다.');
