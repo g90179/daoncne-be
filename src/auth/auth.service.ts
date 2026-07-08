@@ -72,39 +72,37 @@ export class AuthService {
     // 📩 메일 발송 파이프라인 (필요 시 연동)
     // const resetLink = `http://localhost:5173/reset-password?email=${email}`;
     // await this.mailerService.sendMail({ to: email, ... instanceKey, resetLink });
-    
+
     console.log(`[DAON 보안엔진] ${email} 계정의 5분 인스턴스 키 발급 완료: ${instanceKey}`);
     return { success: true };
   }
 
   // 🔐 4. 인스턴스 키 검증 및 로봇 캡차 우회 필터링 후 비밀번호 변경
-  async resetPassword(body: { email: string; instanceKey: string; newPassword: string; robotToken: string }) {
-    const { email, instanceKey, newPassword, robotToken } = body;
+async resetPassword(body: { email: string; instanceKey: string; newPassword: string; robotToken: string }) {
+  const { email, instanceKey, newPassword, robotToken } = body;
 
-    // 🔑 조건 2: 견적문의 페이지에 사용하셨던 로봇 차단 검사 API 연동 지점
-    // const isRobotFree = await this.captchaService.verify(robotToken);
-    // if (!isRobotFree) throw new BadRequestException('로봇 검증(Captcha)에 실패했습니다.');
+  // [로봇 검증 토큰 바인딩 필요 시 이 구역에 세팅]
 
-    const user = await this.usersService.findOneByEmail(email);
-    if (!user) throw new BadRequestException('존재하지 않는 관리자 정보입니다.');
+  const user = await this.usersService.findOneByEmail(email);
+  if (!user) throw new BadRequestException('존재하지 않는 관리자 정보입니다.');
 
-    // DB에 기록된 키 검증 및 null 스니핑 방지
-    if (!user.resetKey || user.resetKey !== instanceKey) {
-      throw new BadRequestException('올바르지 않거나 만료된 인스턴스 키입니다.');
-    }
-
-    // 🔑 조건 2: 5분 시간 유효성 엄격 체크
-    const currentTime = new Date();
-    if (currentTime > new Date(user.resetKeyExpires)) {
-      throw new BadRequestException('인증 제한 시간(5분)을 초과했습니다. 다시 신청해 주세요.');
-    }
-
-    // 기존 임포트된 bcryptjs 규격에 맞춰 안전하게 새 암호 단방향 해싱
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // 🔑 조건 4: 신규 비밀번호 갱신 및 사용이 끝난 인스턴스 키 컬럼 즉시 폐기(null 처리)
-    await this.usersService.updatePasswordAndClearResetKey(user.id, hashedPassword);
-
-    return { success: true };
+  // DB에 기록된 키 검증
+  if (!user.resetKey || user.resetKey !== instanceKey) {
+    throw new BadRequestException('올바르지 않거나 만료된 인스턴스 키입니다.');
   }
+
+  // 🔑 [핵심 수정] Null 가드 장착 및 .getTime()을 통한 타임스탬프 원시 값 안전 비교
+  const currentTime = new Date();
+  if (!user.resetKeyExpires || currentTime.getTime() > user.resetKeyExpires.getTime()) {
+    throw new BadRequestException('인증 제한 시간(5분)을 초과했습니다. 다시 신청해 주세요.');
+  }
+
+  // 기존 임포트된 bcryptjs 규격에 맞춰 안전하게 새 암호 단방향 해싱
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // 🔑 신규 비밀번호 갱신 및 사용이 끝난 인스턴스 키 컬럼 즉시 폐기(null 처리)
+  await this.usersService.updatePasswordAndClearResetKey(user.id, hashedPassword);
+
+  return { success: true };
+}
 }
