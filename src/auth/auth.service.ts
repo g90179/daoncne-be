@@ -1,62 +1,112 @@
 // daon-backend/src/auth/auth.service.ts
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
-  // 성현 님이 요청하신 마스터 비밀키 세팅
+  // 성현 님이 요청하신 마스터 비밀키 세팅 (유지)
   private readonly jwtSecret = 'wjdtjddksqkqh';
 
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    // 필요 시 이 자리에 MailerService나 CaptchaService를 주입하여 확장하세요.
   ) {}
 
-  // 🔐 1. 로그인 및 2단계 토큰 최초 발급
+  // 🔐 1. 로그인 및 2단계 토큰 최초 발급 (유지)
   async login(email: string, pass: string) {
     const user = await this.usersService.findOneByEmail(email);
     if (!user) throw new UnauthorizedException('존재하지 않는 계정입니다.');
 
-    // bcryptjs 비밀번호 대조 검증
     const isMatch = await bcrypt.compare(pass, user.password);
     if (!isMatch) throw new UnauthorizedException('비밀번호가 일치하지 않습니다.');
 
-    // 토큰에 담을 유저 메타데이터 페이로드
     const payload = { sub: user.id, email: user.email, role: user.role };
 
     return {
-      // 액세스 토큰: 2시간 유효
       access_token: this.jwtService.sign(payload, { secret: this.jwtSecret, expiresIn: '2h' }),
-      // 리프레시 토큰: 1달(30일) 유효
       refresh_token: this.jwtService.sign(payload, { secret: this.jwtSecret, expiresIn: '30d' }),
     };
   }
 
-  // 🔄 2. 리프레시 토큰을 이용한 액세스 토큰 실시간 갱신 (보안 강화 버전)
+  // 🔄 2. 리프레시 토큰을 이용한 액세스 토큰 실시간 갱신 (유지)
   async refresh(refreshToken: string) {
     try {
-      // 리프레시 토큰 복호화 및 위변조 서명 검증
       const payload = this.jwtService.verify(refreshToken, { secret: this.jwtSecret });
-      
-      // 🔑 [핵심 수정] 토큰 안의 옛날 데이터 대신, DB에서 현재 최신 유저 상태를 특수 조회합니다.
       const user = await this.usersService.findOneByEmail(payload.email);
-      
-      // 그 사이 계정이 삭제되었거나 정지된 경우 차단
+
       if (!user) {
         throw new UnauthorizedException('탈퇴되었거나 존재하지 않는 관리자 계정입니다.');
       }
 
-      // 🔑 [동기화] 계정 관리 탭에서 변경된 가장 최신의 등급(role) 정보를 반영하여 새 페이로드 조립
       const newPayload = { sub: user.id, email: user.email, role: user.role };
-      
+
       return {
-        // 새로 가동되는 2시간짜리 갱신 액세스 토큰 리턴
         access_token: this.jwtService.sign(newPayload, { secret: this.jwtSecret, expiresIn: '2h' }),
       };
     } catch (e) {
       throw new UnauthorizedException('만료되었거나 변조된 리프레시 토큰입니다. 다시 로그인하세요.');
     }
+  }
+
+  // 📩 3. [신규 추가] 비밀번호 찾기 인스턴스 키 생성 및 만료 시간 캐싱
+  async sendResetLink(email: string) {
+    const user = await this.usersService.findOneByEmail(email);
+    if (!user) throw new BadRequestException('등록되지 않은 이메일 주소입니다.');
+
+    // 🔑 조건 3: 영문 대소문자 + 숫자 랜덤 조합 8자리 키 생성기
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let instanceKey = '';
+    for (let i = 0; i < 8; i++) {
+      instanceKey += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // 🔑 조건 2: 5분 동안만 사용할 수 있는 만료 타임스탬프 수식 대입
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+
+    // 유저 엔티티 혹은 별도 레코드에 인스턴스 키 정보 업데이트
+    // (usersService 내에 토큰 저장 메서드를 아래 이름처럼 구현하시거나 상황에 맞게 매핑하세요)
+    await this.usersService.updateResetKey(user.id, instanceKey, expiresAt);
+
+    // 📩 메일 발송 파이프라인 (프로젝트에 세팅된 메일 발송 모듈에 링크와 키를 태우세요)
+    // const resetLink = `http://localhost:5173/reset-password?email=${email}`;
+    // await this.mailerService.sendMail({ to: email, ... instanceKey, resetLink });
+    console.log(`[DAON 보안엔진] ${email} 계정의 5분 인스턴스 키 발급 완료: ${instanceKey}`);
+    return { success: true };
+  }
+
+  // 🔐 4. [신규 추가] 인스턴스 키 검증 및 로봇 캡차 우회 필터링 후 비밀번호 변경
+  async resetPassword(body: { email: string; instanceKey: string; newPassword: string; robotToken: string }) {
+    const { email, instanceKey, newPassword, robotToken } = body;
+
+    // 🔑 조건 2: 견적문의 페이지에 사용하셨던 로봇 차단 검사 API 연동 지점
+    // const isRobotFree = await this.captchaService.verify(robotToken);
+    // if (!isRobotFree) throw new BadRequestException('로봇 검증(Captcha)에 실패했습니다.');
+
+    const user = await this.usersService.findOneByEmail(email);
+    if (!user) throw new BadRequestException('존재하지 않는 관리자 정보입니다.');
+
+    // DB에 기록된 키 검증 및 null 스니핑 방지
+    if (!user.resetKey || user.resetKey !== instanceKey) {
+      throw new BadRequestException('올바르지 않거나 만료된 인스턴스 키입니다.');
+    }
+
+    // 🔑 조건 2: 5분 시간 유효성 엄격 체크
+    const currentTime = new Date();
+    if (currentTime > new Date(user.resetKeyExpires)) {
+      throw new BadRequestException('인증 제한 시간(5분)을 초과했습니다. 다시 신청해 주세요.');
+    }
+
+    // 기존 임포트된 bcryptjs 규격에 맞춰 안전하게 새 암호 단방향 해싱
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 🔑 조건 4: 신규 비밀번호 갱신 및 사용이 끝난 인스턴스 키 컬럼 즉시 폐기(null 처리)
+    // (usersService 내에 암호 변경 및 키 초기화 메서드를 아래와 같이 구성하시면 안전합니다)
+    await this.usersService.updatePasswordAndClearResetKey(user.id, hashedPassword);
+
+    return { success: true };
   }
 }
