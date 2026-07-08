@@ -21,7 +21,7 @@ export class MailService {
 
   // 🔔 견적문의 수신용 프리미엄 HTML 메일 폼 발송 엔진 (유지)
   async sendQuoteNotification(toEmail: string, quoteDetails: any) {
-    const adminLink = `${process.env.FRONTEND_URL}/admin`;
+    const adminLink = `${process.env.FRONTEND_URL}/#/quotes`;
 
     const htmlContent = `
       <div style="font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; border: 1px solid #e5e7eb; border-radius: 20px; background-color: #ffffff; color: #171717;">
