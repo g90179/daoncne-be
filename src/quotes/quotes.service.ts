@@ -90,10 +90,10 @@ export class QuotesService {
         if (companyInfo && companyInfo.email && companyInfo.email.trim() !== '') {
           await this.mailService.sendQuoteNotification(companyInfo.email, result);
 
-          // 🔑 [신규 추가] 메일 전송이 완벽히 끝났을 때 터미널에 초록색 체크와 함께 띄울 성공 로그!
+          // 🔑 메일 전송이 완벽히 끝났을 때 터미널에 초록색 체크와 함께 띄울 성공 로그!
           console.log(`✅ [이메일 발송 성공] 관리자 계정(${companyInfo.email})으로 알림을 보냈습니다.`);
         } else {
-          // 🔑 [신규 추가] 혹시 DB에 대표 이메일이 등록 안 되어 있을 때를 위한 로그
+          // 🔑 혹시 DB에 대표 이메일이 등록 안 되어 있을 때를 위한 로그
           console.log(`⚠️ [이메일 발송 건너뜀] Company 테이블에 대표 이메일 주소가 비어있습니다.`);
         }
       } catch (mailError) {
@@ -153,7 +153,7 @@ export class QuotesService {
     if (updateQuoteDto.password && quote.password !== updateQuoteDto.password) {
       throw new UnauthorizedException('비밀번호가 올바르지 않아 수정할 수 없습니다.');
     }
-    return await this.prisma.quote.update({
+    return await this.prisma.update({
       where: { id },
       data: updateQuoteDto,
     });
@@ -169,5 +169,26 @@ export class QuotesService {
         replyAt: new Date(),
       },
     });
+  }
+
+  /**
+   * 👑 [신규 추가 - 관리자 전용] 견적글 데이터베이스 영구 삭제
+   * Prisma Engine Spec 매핑 완료
+   */
+  async remove(id: number) {
+    // A. Prisma 조회를 통해 원천 데이터 실재 유무 검증 후 404 예외 핸들링
+    const quote = await this.prisma.quote.findUnique({ where: { id } });
+    if (!quote) {
+      throw new NotFoundException(`존재하지 않거나 이미 삭제된 견적글입니다. (ID: ${id})`);
+    }
+
+    // B. 가비아 서버 인프라 및 DB 레코드 영구 격리 삭제 수행
+    await this.prisma.quote.delete({ where: { id } });
+
+    // C. 프론트엔드 Axios 전송 구조에 매칭되도록 성공 플래그 릴레이 반환
+    return {
+      success: true,
+      message: '견적 문의가 정상적으로 삭제되었습니다.',
+    };
   }
 }

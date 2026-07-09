@@ -47,4 +47,15 @@ export class QuotesController {
   addReply(@Param('id', ParseIntPipe) id: number, @Body('reply') reply: string) {
     return this.quotesService.addReply(id, reply);
   }
+
+  /**
+   * 👑 [관리자 전용] 특정 견적 문의글 완전 삭제
+   * DELETE /quotes/:id
+   */
+  @UseGuards(JwtAuthGuard) // 🔒 인가되지 않은 비로그인 사용자의 악의적 API 호출을 원천 차단합니다.
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return await this.quotesService.remove(id);
+  }
 }
