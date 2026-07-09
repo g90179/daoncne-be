@@ -1,3 +1,4 @@
+// daon-backend\src\main.ts
 import 'dotenv/config'; // 💡 반드시 최상단에 위치해야 합니다!
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -15,6 +16,9 @@ async function bootstrap() {
       'https://daoncne.co.kr' // 실제 배포될 프로덕션 프론트엔드 주소 허용
     ],
     credentials: true, // 쿠키나 인증 헤더를 허용할 경우 필수
+    // 🔑 핵심 추가: 프론트엔드가 보내는 Authorization 헤더를 백엔드가 거절하지 않도록 명시합니다.
+    allowedHeaders: 'Content-Type, Authorization',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
 
   // /uploads 경로로 들어오는 요청을 uploads 폴더와 연결
