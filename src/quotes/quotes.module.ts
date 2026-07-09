@@ -10,7 +10,11 @@ import { MailModule } from '../mail/mail.module';
   imports: [
     PrismaModule,
     MailModule,
-    JwtModule // 👈 가드가 JwtService를 인식할 수 있도록 임포트 단에 주입합니다.
+    // 🛠️ [경고 제거] 가드가 먹통이 되지 않도록 기존 서버의 JWT_SECRET 설정을 주입합니다.
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'YOUR_SECRET_KEY', // AuthModule과 동일한 키 지정
+      signOptions: { expiresIn: '1d' },
+    }),
   ],
   controllers: [QuotesController],
   providers: [QuotesService],
