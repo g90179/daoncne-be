@@ -1,8 +1,24 @@
 // src/quotes/quotes.controller.ts
-import { Controller, Get, Post, Body, Param, Put, ParseIntPipe } from '@nestjs/common';
+import { 
+  Controller, 
+  Get, 
+  Post, 
+  Put, 
+  Delete, // 👈 추가
+  Param, 
+  Body, 
+  UseGuards, // 👈 추가
+  ParseIntPipe, 
+  HttpCode, // 👈 추가
+  HttpStatus // 👈 추가
+} from '@nestjs/common';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+// 2. 관리자 인증 가드인 JwtAuthGuard를 불러옵니다.
+// 💡 프로젝트 내부의 실제 auth guard 파일 주소 위치에 맞게 경로(../ 등)를 확인해 주세요.
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 
 @Controller('quotes')
 export class QuotesController {
