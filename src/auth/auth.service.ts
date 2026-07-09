@@ -7,14 +7,17 @@ import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
-  // 성현 님이 요청하신 마스터 비밀키 세팅 (유지)
-  private readonly jwtSecret = 'wjdtjddksqkqh';
 
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private mailService: MailService, // 🔑 생성자 매개변수에 메일 서비스 주입 성사
   ) {}
+
+  // 🔑 내부에서 사용할 키를 .env 값으로 지정 (환경변수가 없으면 에러가 나도록 설정하는 것이 안전합니다)
+  private get secret() {
+    return process.env.JWT_SECRET;
+  }
 
   // 🔐 1. 로그인 및 2단계 토큰 최초 발급 (유지)
   async login(email: string, pass: string) {
@@ -27,15 +30,16 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email, role: user.role };
 
     return {
-      access_token: this.jwtService.sign(payload, { secret: this.jwtSecret, expiresIn: '2h' }),
-      refresh_token: this.jwtService.sign(payload, { secret: this.jwtSecret, expiresIn: '30d' }),
+      // 🔑 하드코딩된 키 대신 this.secret 사용
+      access_token: this.jwtService.sign(payload, { secret: this.secret, expiresIn: '2h' }),
+      refresh_token: this.jwtService.sign(payload, { secret: this.secret, expiresIn: '30d' }),
     };
   }
 
   // 🔄 2. 리프레시 토큰을 이용한 액세스 토큰 실시간 갱신 (유지)
   async refresh(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify(refreshToken, { secret: this.jwtSecret });
+      const payload = this.jwtService.verify(refreshToken, { secret: this.secret });
       const user = await this.usersService.findOneByEmail(payload.email);
 
       if (!user) {
@@ -43,9 +47,8 @@ export class AuthService {
       }
 
       const newPayload = { sub: user.id, email: user.email, role: user.role };
-
       return {
-        access_token: this.jwtService.sign(newPayload, { secret: this.jwtSecret, expiresIn: '2h' }),
+        access_token: this.jwtService.sign(newPayload, { secret: this.secret, expiresIn: '2h' }),
       };
     } catch (e) {
       throw new UnauthorizedException('만료되었거나 변조된 리프레시 토큰입니다. 다시 로그인하세요.');
