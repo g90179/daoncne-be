@@ -5,37 +5,36 @@ import { Request } from 'express';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  // 로그인 시 사용하셨던 JwtService를 주입받습니다.
   constructor(private readonly jwtService: JwtService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    
-    // 프론트엔드 Axios 인터셉터가 보낸 Bearer 토큰 추출
     const token = this.extractTokenFromHeader(request);
     
     if (!token) {
-      throw new UnauthorizedException('인증 토큰이 존재하지 않습니다. 로그인이 필요합니다.');
+      console.log('🚨 [Auth] 토큰 없음');
+      throw new UnauthorizedException('토큰이 없습니다.');
     }
 
     try {
-      // 토큰 복호화 및 유효성 검증
-      // 💡 암호화 키(secret)는 기존 auth 설정이나 .env 파일에 맞춰 'YOUR_SECRET_KEY' 부분을 수정해 주세요.
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_SECRET || 'YOUR_SECRET_KEY', 
-      });
+      // 🔑 중요: AuthService와 동일한 비밀키를 강제로 직접 주입하여 테스트합니다.
+      // .env 문제일 가능성을 배제하기 위해 테스트용으로 하드코딩된 키를 넣습니다.
+      const secret = 'daoncne_secret_key_2026'; 
 
-      // 요청(request) 객체에 유저 정보를 탑재하여 컨트롤러로 넘겨줍니다.
+      const payload = await this.jwtService.verifyAsync(token, { secret });
       request['user'] = payload;
+      return true;
     } catch (error) {
-      throw new UnauthorizedException('유효하지 않거나 만료된 토큰입니다. 다시 로그인해 주세요.');
+      // 🚨 여기가 핵심입니다! 왜 401이 나는지 서버 로그에 찍어봅니다.
+      console.error('🚨 [Auth] 토큰 검증 실패 이유:', error.message);
+      throw new UnauthorizedException('유효하지 않은 토큰입니다.');
     }
-
-    return true;
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    const authHeader = request.headers.authorization;
+    if (!authHeader) return undefined;
+    const [type, token] = authHeader.split(' ');
     return type === 'Bearer' ? token : undefined;
   }
 }
