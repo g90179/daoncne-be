@@ -153,7 +153,9 @@ export class QuotesService {
     if (updateQuoteDto.password && quote.password !== updateQuoteDto.password) {
       throw new UnauthorizedException('비밀번호가 올바르지 않아 수정할 수 없습니다.');
     }
-    return await this.prisma.update({
+    
+    // 🛠️ [교정] 기존 this.prisma.update에서 중간에 .quote 모델명을 명시해 줍니다.
+    return await this.prisma.quote.update({
       where: { id },
       data: updateQuoteDto,
     });
