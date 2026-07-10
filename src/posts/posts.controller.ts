@@ -83,7 +83,7 @@ export class PostsController {
     }
   }
 
-  @Public() 
+  @Public()
   @Get()
   async findAll(@Query('category') category: string) {
     return this.prisma.post.findMany({
