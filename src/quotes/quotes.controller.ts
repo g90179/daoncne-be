@@ -4,22 +4,19 @@ import {
   Get,
   Post,
   Put,
-  Delete, // 👈 추가
+  Delete,
   Param,
   Body,
-  UseGuards, // 👈 추가
+  UseGuards,
   ParseIntPipe,
-  HttpCode, // 👈 추가
-  HttpStatus // 👈 추가
+  HttpCode,
+  HttpStatus
 } from '@nestjs/common';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
-// 2. 관리자 인증 가드인 JwtAuthGuard를 불러옵니다.
-// 💡 프로젝트 내부의 실제 auth guard 파일 주소 위치에 맞게 경로(../ 등)를 확인해 주세요.
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { Public } from '../auth/decorators/public.decorator'; // ✨ import 추가
-
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('quotes')
 export class QuotesController {
@@ -35,6 +32,7 @@ export class QuotesController {
     return this.quotesService.generateCaptcha();
   }
 
+  // 비로그인 사용자 문의 접수 (가드 없음)
   @Post()
   create(@Body() createQuoteDto: CreateQuoteDto) {
     return this.quotesService.create(createQuoteDto);
@@ -43,7 +41,7 @@ export class QuotesController {
   @Public()
   @Get()
   findAll() {
-    return this.quotesService.findAll(); // { success: true, data: [...] } 가 반환됨
+    return this.quotesService.findAll();
   }
 
   @Get(':id')
@@ -56,24 +54,39 @@ export class QuotesController {
     return this.quotesService.verifyAndPassword(id, password);
   }
 
+  /**
+   * 🔓 [공용] 특정 견적 문의글 수정
+   * 비로그인 사용자는 Body에 password를 포함하여 본인 확인을 진행합니다.
+   */
   @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateQuoteDto: UpdateQuoteDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number, 
+    @Body() updateQuoteDto: UpdateQuoteDto
+  ) {
+    // 서비스단에서 dto 내부의 password를 확인하여 수정 권한을 부여합니다.
     return this.quotesService.update(id, updateQuoteDto);
   }
 
+  /**
+   * 👑 [관리자 전용] 특정 견적 문의글 답변 등록
+   */
+  @UseGuards(JwtAuthGuard)
   @Put(':id/reply')
   addReply(@Param('id', ParseIntPipe) id: number, @Body('reply') reply: string) {
     return this.quotesService.addReply(id, reply);
   }
 
   /**
-   * 👑 [관리자 전용] 특정 견적 문의글 완전 삭제
-   * DELETE /quotes/:id
+   * 🔓 [공용] 특정 견적 문의글 완전 삭제
+   * JwtAuthGuard를 제거하여 비로그인 사용자도 password 확인을 통해 삭제 가능하도록 변경
    */
-  @UseGuards(JwtAuthGuard) // 🔒 인가되지 않은 비로그인 사용자의 악의적 API 호출을 원천 차단합니다.
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    return await this.quotesService.remove(id);
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('password') password: string // 본인 확인용 비밀번호
+  ) {
+    // 서비스단에서 관리자 여부 확인 혹은 password 일치 여부 확인 후 삭제 수행
+    return await this.quotesService.remove(id, password);
   }
 }
