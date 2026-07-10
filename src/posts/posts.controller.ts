@@ -10,7 +10,9 @@ import {
   UseInterceptors,
   UploadedFiles,
   UploadedFile,
-  Query
+  Query,
+  UseGuards,
+  Logger
 } from '@nestjs/common';
 
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
@@ -24,6 +26,8 @@ const API_URL = 'https://g90179.gabia.io';
 @Controller('posts')
 export class PostsController {
   constructor(private readonly prisma: PrismaService) {}
+
+  private readonly logger = new Logger(PostsController.name); // ✨ 클래스 내부 로거 선언
 
   // CKEditor 5 이미지 업로드 전용 엔드포인트
   @Post('upload')
@@ -42,6 +46,7 @@ export class PostsController {
     };
   }
 
+  @UseGuards(JwtAuthGuard) // ✨ 인증 보호 추가
   @Post()
   @UseInterceptors(FilesInterceptor('files', 10, {
     storage: diskStorage({
@@ -54,45 +59,61 @@ export class PostsController {
   }))
 
   async create(@Body() body: any, @UploadedFiles() files: any[]) {
-    const { title, content, category } = body;
-    
-    const dbFiles = files?.map(f => {
-      let type = 'file';
-      if (f.mimetype.includes('image')) {
-        type = 'image';
-      } else if (f.mimetype.includes('video') || f.filename.endsWith('.mp4')) {
-        type = 'video';
-      }
-      return {
-        url: `/uploads/${f.filename}`,
-        name: f.originalname,
-        type: type
-      };
-    }) || [];
+    // 💡 1. 요청이 들어왔는지 확인
+    this.logger.log('--- [업로드 요청] create 시작 ---');
+    this.logger.debug(`Body 내용: ${JSON.stringify(body)}`);
+    this.logger.debug(`받은 파일 개수: ${files ? files.length : 0}`);
 
-    const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
-    const match = content ? content.match(imgRegex) : null;
+    try {
+      const { title, content, category } = body;
 
-    if (match && match[1]) {
-      let editorImgUrl = match[1];
-      if (editorImgUrl.includes('/uploads/')) {
-        editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
+      const dbFiles = files?.map(f => {
+        let type = 'file';
+        if (f.mimetype.includes('image')) {
+          type = 'image';
+        } else if (f.mimetype.includes('video') || f.filename.endsWith('.mp4')) {
+          type = 'video';
+        }
+        return {
+          url: `/uploads/${f.filename}`,
+          name: f.originalname,
+          type: type
+        };
+      }) || [];
+
+      const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
+      const match = content ? content.match(imgRegex) : null;
+
+      if (match && match[1]) {
+        let editorImgUrl = match[1];
+        if (editorImgUrl.includes('/uploads/')) {
+          editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
+        }
+        dbFiles.unshift({
+          url: editorImgUrl,
+          name: 'editor_thumbnail',
+          type: 'image'
+        });
       }
-      dbFiles.unshift({
-        url: editorImgUrl,
-        name: 'editor_thumbnail',
-        type: 'image'
+
+      this.logger.log('--- [업로드 성공] 게시물 생성 완료 ---');
+
+      return this.prisma.post.create({
+        data: {
+          title,
+          content,
+          category,
+          files: { create: dbFiles }
+        }
       });
-    }
+    } catch (error) {
+      // 💡 3. 서버에서 발생한 진짜 에러 사유 출력
+      this.logger.error('!!! [업로드 실패] 에러 발생 !!!');
+      this.logger.error(error.message);
+      this.logger.error(error.stack); // 상세 에러 경로
 
-    return this.prisma.post.create({
-      data: {
-        title,
-        content,
-        category,
-        files: { create: dbFiles }
-      }
-    });
+      throw error; // 프론트엔드로 에러를 전달
+    }
   }
 
   @Get()
