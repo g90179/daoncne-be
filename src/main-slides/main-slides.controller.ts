@@ -55,6 +55,7 @@ export class MainSlidesController {
     return this.mainSlidesService.findAll();
   }
 
+  @Public()
   @Get('exposed') // 🌍 대문 배너 호출 전용 라우터 (Public)
   findExposed() {
     return this.mainSlidesService.findExposed();
