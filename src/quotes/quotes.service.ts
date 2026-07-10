@@ -174,20 +174,27 @@ export class QuotesService {
   }
 
   /**
-   * 👑 [신규 추가 - 관리자 전용] 견적글 데이터베이스 영구 삭제
-   * Prisma Engine Spec 매핑 완료
+   * 👑 [개선 완료] 견적글 데이터베이스 영구 삭제
+   * 비로그인 사용자는 password를 통해 본인 확인 수행
    */
-  async remove(id: number) {
+  async remove(id: number, password?: string) {
     // A. Prisma 조회를 통해 원천 데이터 실재 유무 검증 후 404 예외 핸들링
     const quote = await this.prisma.quote.findUnique({ where: { id } });
     if (!quote) {
       throw new NotFoundException(`존재하지 않거나 이미 삭제된 견적글입니다. (ID: ${id})`);
     }
 
-    // B. 가비아 서버 인프라 및 DB 레코드 영구 격리 삭제 수행
+    // B. 패스워드가 파라미터로 넘어왔다면 (비로그인 사용자의 삭제 요청) 일치 여부 검증
+    if (password) {
+      if (quote.password !== password) {
+        throw new UnauthorizedException('비밀번호가 일치하지 않아 삭제 권한이 없습니다.');
+      }
+    }
+
+    // C. 가비아 서버 인프라 및 DB 레코드 영구 격리 삭제 수행
     await this.prisma.quote.delete({ where: { id } });
 
-    // C. 프론트엔드 Axios 전송 구조에 매칭되도록 성공 플래그 릴레이 반환
+    // D. 프론트엔드 Axios 전송 구조에 매칭되도록 성공 플래그 릴레이 반환
     return {
       success: true,
       message: '견적 문의가 정상적으로 삭제되었습니다.',
