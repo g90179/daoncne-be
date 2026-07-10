@@ -15,11 +15,12 @@ import { MailModule } from '../mail/mail.module'; // 🔑 성현 님의 메일 �
     PassportModule,
     MailModule, // 🔑 여기에 주입해야 AuthService에서 MailService를 에러 없이 쓸 수 있습니다.
     JwtModule.register({
-      secret: 'secretKey',
+      secret: process.env.JWT_SECRET || 'wjdtjddksqkqh',
       signOptions: { expiresIn: '60m' },
     }),
   ],
   providers: [AuthService],
   controllers: [AuthController],
+  exports: [JwtModule, AuthService] // 🔑 핵심: 다른 모듈이 이 JwtModule을 쓸 수 있게 공개(Export)합니다.
 })
 export class AuthModule {}

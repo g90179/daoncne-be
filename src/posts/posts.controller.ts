@@ -15,11 +15,11 @@ import {
   Logger
 } from '@nestjs/common';
 
+// 🔑 이 줄이 빠져있어서 발생한 에러입니다. 추가해 주세요!
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
 import { diskStorage } from 'multer';
-// 🔑 이 줄이 빠져있어서 발생한 에러입니다. 추가해 주세요!
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import * as fs from 'fs'; // ✨ 추가: 파일 삭제용 fs 모듈 전체 임포트
 import * as path from 'path'; // ✨ 변경: path.join과 path.extname을 모두 사용하기 위해 전체 임포트
 
