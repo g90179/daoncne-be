@@ -48,7 +48,6 @@ export class PostsController {
     };
   }
 
-  @UseGuards(JwtAuthGuard) // ✨ 인증 보호 추가
   @Post()
   @UseInterceptors(FilesInterceptor('files', 10, {
     storage: diskStorage({
@@ -118,6 +117,7 @@ export class PostsController {
     }
   }
 
+  @Public()
   @Get()
   async findAll(@Query('category') category: string) {
     return this.prisma.post.findMany({
