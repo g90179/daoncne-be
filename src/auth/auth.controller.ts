@@ -1,7 +1,9 @@
 // daon-backend/src/auth/auth.controller.ts
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { Public } from '../auth/decorators/public.decorator'; // ✨ import 추가
 
+@Public()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
