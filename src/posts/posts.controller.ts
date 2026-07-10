@@ -1,3 +1,4 @@
+// daon-backend\src\posts\posts.controller.ts
 import {
   Controller,
   Post,
@@ -51,6 +52,7 @@ export class PostsController {
       }
     })
   }))
+
   async create(@Body() body: any, @UploadedFiles() files: any[]) {
     const { title, content, category } = body;
     
@@ -115,7 +117,7 @@ export class PostsController {
   async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: any[]) {
     const { title, content, category, deletedFileIds } = body;
     const updateData: any = { title, content, category };
-    
+
     let idsToDelete: number[] = [];
     if (deletedFileIds) {
       try {
@@ -189,8 +191,8 @@ export class PostsController {
     // 2. 서버 내 실제 물리 파일 삭제 처리 (이제 fs와 path 모듈이 주입되어 에러 없이 정상 작동합니다)
     postWithFiles.files.forEach(file => {
       if (file.url.startsWith('/uploads/')) {
-        const filePath = path.join(__dirname, '..', '..', file.url); 
-        
+        const filePath = path.join(__dirname, '..', '..', file.url);
+
         if (fs.existsSync(filePath)) {
           try {
             fs.unlinkSync(filePath);
