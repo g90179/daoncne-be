@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import { MainSlidesService } from './main-slides.service';
 import { CreateMainSlideDto } from './dto/create-main-slide.dto';
 import { UpdateMainSlideDto } from './dto/update-main-slide.dto';
+import { Public } from '../auth/decorators/public.decorator'; // ✨ import 추가
 
 @Controller('main-slides')
 export class MainSlidesController {

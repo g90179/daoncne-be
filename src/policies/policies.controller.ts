@@ -2,6 +2,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { PoliciesService } from './policies.service';
 import { Prisma } from '@prisma/client';
+import { Public } from '../auth/decorators/public.decorator'; // ✨ import 추가
 
 @Controller('policies')
 export class PoliciesController {
