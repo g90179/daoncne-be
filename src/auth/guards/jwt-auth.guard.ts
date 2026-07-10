@@ -19,6 +19,9 @@ export class JwtAuthGuard implements CanActivate {
       context.getClass(),
     ]);
 
+    // ✨ 디버깅 로그 추가
+    console.log(`[AuthGuard] 요청 경로: ${context.getClass().name}.${context.getHandler().name}, isPublic: ${isPublic}`);
+
     // 🔑 2. 공개(Public)라면 인증 체크 없이 바로 통과!
     if (isPublic) {
       return true;
