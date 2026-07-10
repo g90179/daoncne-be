@@ -12,6 +12,7 @@ export class PoliciesController {
     return this.policiesService.create(data);
   }
 
+  @Public()
   @Get()
   findAll(@Query('type') type?: string) {
     return this.policiesService.findAll(type);

@@ -48,6 +48,7 @@ export class MainSlidesController {
     return this.mainSlidesService.create(createMainSlideDto);
   }
 
+  @Public()
   @Get()
   findAll() {
     return this.mainSlidesService.findAll();

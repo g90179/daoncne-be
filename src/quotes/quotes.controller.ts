@@ -39,6 +39,7 @@ export class QuotesController {
     return this.quotesService.create(createQuoteDto);
   }
 
+  @Public()
   @Get()
   findAll() {
     return this.quotesService.findAll(); // { success: true, data: [...] } 가 반환됨
