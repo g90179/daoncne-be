@@ -1,4 +1,4 @@
-// daon-backend\src\posts\posts.controller.ts
+// daon-backend/src/posts/posts.controller.ts
 import {
   Controller,
   Post,
@@ -11,25 +11,23 @@ import {
   UploadedFiles,
   UploadedFile,
   Query,
-  UseGuards,
   Logger
 } from '@nestjs/common';
-
-// 🔑 이 줄이 빠져있어서 발생한 에러입니다. 추가해 주세요!
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
 import { diskStorage } from 'multer';
-import * as fs from 'fs'; // ✨ 추가: 파일 삭제용 fs 모듈 전체 임포트
-import * as path from 'path'; // ✨ 변경: path.join과 path.extname을 모두 사용하기 위해 전체 임포트
+import * as fs from 'fs';
+import * as path from 'path';
+
+// ✨ 해결: Public 데코레이터 추가 (파일 경로를 확인해 주세요)
+import { Public } from '../auth/decorators/public.decorator'; 
 
 const API_URL = 'https://g90179.gabia.io';
 
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly prisma: PrismaService) {}
-
   private readonly logger = new Logger(PostsController.name); // ✨ 클래스 내부 로거 선언
+  constructor(private readonly prisma: PrismaService) {}
 
   // CKEditor 5 이미지 업로드 전용 엔드포인트
   @Post('upload')
@@ -38,14 +36,12 @@ export class PostsController {
       destination: './uploads',
       filename: (req, file, cb) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${path.extname(file.originalname)}`); // ✨ path.extname으로 변경
+        cb(null, `${randomName}${path.extname(file.originalname)}`);
       }
     })
   }))
   async uploadEditorImage(@UploadedFile() file: any) {
-    return {
-      url: `${API_URL}/uploads/${file.filename}`
-    };
+    return { url: `${API_URL}/uploads/${file.filename}` };
   }
 
   @Post()
@@ -54,70 +50,40 @@ export class PostsController {
       destination: './uploads',
       filename: (req, file, cb) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${path.extname(file.originalname)}`); // ✨ path.extname으로 변경
+        cb(null, `${randomName}${path.extname(file.originalname)}`);
       }
     })
   }))
 
-  async create(@Body() body: any, @UploadedFiles() files: any[]) {
-    // 💡 1. 요청이 들어왔는지 확인
-    this.logger.log('--- [업로드 요청] create 시작 ---');
-    this.logger.debug(`Body 내용: ${JSON.stringify(body)}`);
-    this.logger.debug(`받은 파일 개수: ${files ? files.length : 0}`);
-
+  async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
+    this.logger.log(`[게시물 생성] 요청 접수: ${body.title}`);
     try {
       const { title, content, category } = body;
+      const dbFiles = files?.map(f => ({
+        url: `/uploads/${f.filename}`,
+        name: f.originalname,
+        type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file')
+      })) || [];
 
-      const dbFiles = files?.map(f => {
-        let type = 'file';
-        if (f.mimetype.includes('image')) {
-          type = 'image';
-        } else if (f.mimetype.includes('video') || f.filename.endsWith('.mp4')) {
-          type = 'video';
-        }
-        return {
-          url: `/uploads/${f.filename}`,
-          name: f.originalname,
-          type: type
-        };
-      }) || [];
-
+      // 에디터 썸네일 추출 로직...
       const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
       const match = content ? content.match(imgRegex) : null;
-
       if (match && match[1]) {
         let editorImgUrl = match[1];
-        if (editorImgUrl.includes('/uploads/')) {
-          editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
-        }
-        dbFiles.unshift({
-          url: editorImgUrl,
-          name: 'editor_thumbnail',
-          type: 'image'
-        });
+        if (editorImgUrl.includes('/uploads/')) editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
+        dbFiles.unshift({ url: editorImgUrl, name: 'editor_thumbnail', type: 'image' });
       }
 
-      this.logger.log('--- [업로드 성공] 게시물 생성 완료 ---');
-
-      return this.prisma.post.create({
-        data: {
-          title,
-          content,
-          category,
-          files: { create: dbFiles }
-        }
+      return await this.prisma.post.create({
+        data: { title, content, category, files: { create: dbFiles } }
       });
     } catch (error) {
-      // 💡 3. 서버에서 발생한 진짜 에러 사유 출력
-      this.logger.error('!!! [업로드 실패] 에러 발생 !!!');
-      this.logger.error(error.message);
-      this.logger.error(error.stack); // 상세 에러 경로
-
-      throw error; // 프론트엔드로 에러를 전달
+      this.logger.error(`[게시물 생성] 실패: ${error.message}`);
+      throw error;
     }
   }
 
-  @Public()
+  @Public() 
   @Get()
   async findAll(@Query('category') category: string) {
     return this.prisma.post.findMany({
@@ -133,11 +99,11 @@ export class PostsController {
         destination: './uploads',
         filename: (req, file, cb) => {
           const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-          cb(null, `${randomName}${path.extname(file.originalname)}`); // ✨ path.extname으로 변경
+          cb(null, `${randomName}${path.extname(file.originalname)}`);
         }
     })
   }))
-  async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: any[]) {
+  async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     const { title, content, category, deletedFileIds } = body;
     const updateData: any = { title, content, category };
 
