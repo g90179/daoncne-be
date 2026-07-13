@@ -25,7 +25,7 @@ export class RssController {
     // 2. Prisma를 이용해 최근 게시글 가져오기 (최신순 20개)
     const posts = await this.prisma.post.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 20, 
+      take: 20,
     });
 
     // 3. 가져온 게시글을 RSS 아이템으로 변환하여 추가
