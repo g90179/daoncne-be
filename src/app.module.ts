@@ -13,6 +13,7 @@ import { MainSlidesModule } from './main-slides/main-slides.module'; // 메인 �
 import { PoliciesModule } from './policies/policies.module'; // 정책관리
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // ✨ 전역 가드로 사용할 Guard 임포트
 import { RssModule } from './rss/rss.module'; // rss
+import { SitemapModule } from './sitemap/sitemap.module'; // sitemap
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { RssModule } from './rss/rss.module'; // rss
     MainSlidesModule,
     PoliciesModule,
     PostsModule,
-    RssModule
+    RssModule,
+    SitemapModule
   ],
   controllers: [AppController],
   providers: [
