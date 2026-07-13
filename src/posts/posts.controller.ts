@@ -11,7 +11,8 @@ import {
   UploadedFiles,
   UploadedFile,
   Query,
-  Logger
+  Logger,
+  NotFoundException // 🔑 추가됨: 에러 처리를 위해 추가
 } from '@nestjs/common';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -54,7 +55,6 @@ export class PostsController {
       }
     })
   }))
-
   async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     this.logger.log(`[게시물 생성] 요청 접수: ${body.title}`);
     try {
@@ -91,6 +91,21 @@ export class PostsController {
       include: { files: true },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  // 🔑 신규 추가됨: 단일 게시글 상세 보기 API
+  @Public() // 누구나 볼 수 있도록 허용
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: Number(id) },
+      include: { files: true }, // 첨부파일(이미지, 영상) 정보도 함께 가져옴
+    });
+    
+    if (!post) {
+      throw new NotFoundException('게시글을 찾을 수 없습니다.');
+    }
+    return post;
   }
 
   @Patch(':id')
