@@ -43,7 +43,7 @@ export class SitemapController {
       xml += `  <url>\n`;
       xml += `    <loc>${baseUrl}/portfolio/${post.id}</loc>\n`;
       // 💡 post.updatedAt 대신 post.createdAt 사용
-      xml += `    <lastmod>${post.createdAt.toISOString().split('T')[0]}</lastmod>\n`; 
+      xml += `    <lastmod>${post.createdAt.toISOString().split('T')[0]}</lastmod>\n`;
       xml += `    <changefreq>monthly</changefreq>\n`;
       xml += `    <priority>0.6</priority>\n`;
       xml += `  </url>\n`;
