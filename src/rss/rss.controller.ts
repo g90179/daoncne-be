@@ -1,7 +1,7 @@
 // daon-backend/src/rss/rss.controller.ts
 import { Controller, Get, Header } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import * as RSS from 'rss';
+import RSS from 'rss';
 import { Public } from '../auth/decorators/public.decorator'; // 기존에 만드신 Public 데코레이터
 
 @Controller('rss')
