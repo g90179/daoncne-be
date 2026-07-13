@@ -13,7 +13,9 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:5173', // 로컬 개발용 프론트엔드 주소 허용
-      'https://daoncne.co.kr' // 실제 배포될 프로덕션 프론트엔드 주소 허용
+      'https://daoncne.co.kr', // 실제 배포될 프로덕션 프론트엔드 주소 허용
+      'https://www.daoncne.co.kr',
+      'https://rss.daoncne.co.kr', // 👈 추가: RSS 서브도메인 허용
     ],
     credentials: true, // 쿠키나 인증 헤더를 허용할 경우 필수
     // 🔑 핵심 추가: 프론트엔드가 보내는 Authorization 헤더를 백엔드가 거절하지 않도록 명시합니다.

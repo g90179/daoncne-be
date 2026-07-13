@@ -16,7 +16,7 @@ export class RssController {
     const feed = new RSS({
       title: '다온씨엔이(DAON C&E)',
       description: '다온씨엔이의 최신 포트폴리오와 소식을 전해드립니다.',
-      feed_url: 'https://daoncne.co.kr/rss',
+      feed_url: 'https://rss.daoncne.co.kr/rss', // 피드 자체 주소
       site_url: 'https://daoncne.co.kr',
       language: 'ko',
       pubDate: new Date().toUTCString(),
@@ -33,9 +33,9 @@ export class RssController {
       feed.item({
         title: post.title,
         // content 안의 HTML 태그가 그대로 RSS 본문으로 들어갑니다.
-        description: post.content, 
+        description: post.content,
         // 💡 주의: 프론트엔드의 실제 상세 페이지 주소 구조에 맞게 변경해 주세요.
-        url: `https://daoncne.co.kr/portfolio/${post.id}`, 
+        url: `https://daoncne.co.kr/portfolio/${post.id}`,
         date: post.createdAt,
         // 작성자 정보가 필요하다면 추가
         author: '다온씨엔이',
