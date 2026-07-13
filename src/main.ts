@@ -3,7 +3,7 @@ import 'dotenv/config'; // 💡 반드시 최상단에 위치해야 합니다!
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express'; // 1. 이게 잘 서있는지 확인!
-import { join } from 'path'
+import { join } from 'path';
 
 async function bootstrap() {
   // 2. 반드시 create 뒤에 <NestExpressApplication>이 붙어있어야 합니다!
@@ -15,6 +15,7 @@ async function bootstrap() {
       'http://localhost:5173', // 로컬 개발용 프론트엔드 주소 허용
       'https://daoncne.co.kr', // 실제 배포될 프로덕션 프론트엔드 주소 허용
       'https://www.daoncne.co.kr',
+      'http://rss.daoncne.co.kr',
       'https://rss.daoncne.co.kr', // 👈 추가: RSS 서브도메인 허용
     ],
     credentials: true, // 쿠키나 인증 헤더를 허용할 경우 필수
