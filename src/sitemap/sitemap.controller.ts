@@ -34,15 +34,16 @@ export class SitemapController {
 
     // 3. DB에서 게시글(포트폴리오) 목록 가져오기
     const posts = await this.prisma.post.findMany({
-      select: { id: true, updatedAt: true },
+      select: { id: true, createdAt: true }, // 💡 updatedAt 대신 createdAt으로 변경
       orderBy: { createdAt: 'desc' },
     });
 
     // 4. 동적 게시글들을 XML에 추가
     posts.forEach((post) => {
       xml += `  <url>\n`;
-      xml += `    <loc>${baseUrl}/portfolio/${post.id}</loc>\n`; // 프론트엔드 상세 페이지 주소 구조에 맞게 변경하세요
-      xml += `    <lastmod>${post.updatedAt.toISOString().split('T')[0]}</lastmod>\n`;
+      xml += `    <loc>${baseUrl}/portfolio/${post.id}</loc>\n`;
+      // 💡 post.updatedAt 대신 post.createdAt 사용
+      xml += `    <lastmod>${post.createdAt.toISOString().split('T')[0]}</lastmod>\n`; 
       xml += `    <changefreq>monthly</changefreq>\n`;
       xml += `    <priority>0.6</priority>\n`;
       xml += `  </url>\n`;
