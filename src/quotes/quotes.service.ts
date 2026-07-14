@@ -118,8 +118,8 @@ export class QuotesService {
       const processed = quotes.map(q => {
         if (q.isSecret) {
           return { 
-            id: q.id, title: q.title, name: q.name, isSecret: q.isSecret, 
-            status: q.status, createdAt: q.createdAt 
+            id: q.id, title: q.title, name: q.name, company: q.company, isSecret: q.isSecret,
+            status: q.status, createdAt: q.createdAt
           };
         }
         return q;
@@ -199,5 +199,31 @@ export class QuotesService {
       success: true,
       message: '견적 문의가 정상적으로 삭제되었습니다.',
     };
+  }
+
+
+  // 👑 관리자 답변 달기 및 상태 변경 + 📧 작성자 답변 메일 발송
+  async addReply(id: number, reply: string) {
+    const result = await this.prisma.quote.update({
+      where: { id },
+      data: {
+        reply,
+        status: reply.trim() ? '답변완료' : '접수대기',
+        replyAt: new Date(),
+      },
+    });
+
+    // 📧 답변 내용이 있고, 작성자가 이메일을 남긴 경우에만 발송
+    if (reply.trim() && result.email && result.email.trim() !== '') {
+      try {
+        await this.mailService.sendQuoteReply(result.email, result);
+        console.log(`✅ [답변 메일 발송 성공] ${result.email} 로 답변을 전송했습니다.`);
+      } catch (mailError) {
+        // 🛡️ 메일 발송 실패해도 답변 저장(DB) 자체는 유지되도록 방어
+        console.error('답변 메일 전송 중 서버/통신 예외 발생:', mailError);
+      }
+    }
+
+    return result;
   }
 }

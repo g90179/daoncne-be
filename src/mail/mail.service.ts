@@ -117,4 +117,42 @@ export class MailService {
       html: htmlContent,
     });
   }
+
+  // 📧 [신규 추가] 관리자 답변을 작성자에게 예쁜 HTML 메일로 발송
+  async sendQuoteReply(to: string, quote: { title: string; name: string; content: string; reply: string }) {
+    const mailOptions = {
+      from: `"다온씨엔이(DAON C&E)" <${process.env.MAIL_USER}>`,
+      to,
+      subject: `[다온씨엔이] "${quote.title}" 문의에 대한 답변이 도착했습니다`,
+      html: `
+        <div style="max-width: 560px; margin: 0 auto; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #f8fafc; padding: 32px 20px;">
+          <div style="background: #ffffff; border-radius: 24px; overflow: hidden; border: 1px solid #e2e8f0;">
+            
+            <div style="background: #0f172a; padding: 28px 32px;">
+              <p style="margin: 0; color: #60a5fa; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">DAON C&E QUOTE</p>
+              <h1 style="margin: 8px 0 0; color: #ffffff; font-size: 20px; font-weight: 800;">문의하신 내용에 답변드립니다</h1>
+            </div>
+
+            <div style="padding: 32px;">
+              <p style="margin: 0 0 4px; font-size: 12px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">문의 제목</p>
+              <p style="margin: 0 0 24px; font-size: 15px; color: #0f172a; font-weight: 700;">${quote.title}</p>
+
+              <p style="margin: 0 0 4px; font-size: 12px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">문의하신 내용</p>
+              <div style="margin: 0 0 24px; padding: 16px 18px; background: #f8fafc; border-radius: 14px; font-size: 13px; color: #475569; line-height: 1.6; white-space: pre-wrap;">${quote.content}</div>
+
+              <p style="margin: 0 0 4px; font-size: 12px; color: #3b82f6; font-weight: 700; text-transform: uppercase;">담당자 답변</p>
+              <div style="margin: 0 0 8px; padding: 18px 20px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 14px; font-size: 14px; color: #1e3a8a; line-height: 1.7; white-space: pre-wrap;">${quote.reply}</div>
+            </div>
+
+            <div style="padding: 20px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">본 메일은 다온씨엔이 견적문의 시스템에서 자동 발송되었습니다.</p>
+            </div>
+
+          </div>
+        </div>
+      `,
+    };
+
+    return this.transporter.sendMail(mailOptions);
+  }
 }
