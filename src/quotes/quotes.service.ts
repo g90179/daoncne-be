@@ -161,18 +161,6 @@ export class QuotesService {
     });
   }
 
-  // 👑 관리자 답변 달기 및 상태 변경
-  async addReply(id: number, reply: string) {
-    return await this.prisma.quote.update({
-      where: { id },
-      data: {
-        reply,
-        status: reply.trim() ? '답변완료' : '접수대기',
-        replyAt: new Date(),
-      },
-    });
-  }
-
   /**
    * 👑 [개선 완료] 견적글 데이터베이스 영구 삭제
    * 비로그인 사용자는 password를 통해 본인 확인 수행

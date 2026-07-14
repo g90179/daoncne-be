@@ -119,7 +119,7 @@ export class MailService {
   }
 
   // 📧 [신규 추가] 관리자 답변을 작성자에게 예쁜 HTML 메일로 발송
-  async sendQuoteReply(to: string, quote: { title: string; name: string; content: string; reply: string }) {
+  async sendQuoteReply(to: string, quote: { title: string; name: string; content: string; reply: string | null }) {
     const mailOptions = {
       from: `"다온씨엔이(DAON C&E)" <${process.env.MAIL_USER}>`,
       to,
