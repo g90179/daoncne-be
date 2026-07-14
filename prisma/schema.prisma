@@ -27,12 +27,24 @@ model User {
 
 // 게시판 모델 (공지사항 등)
 model Post {
-  id        Int      @id @default(autoincrement())
-  title     String
-  content   String   @db.LongText  // 마크다운은 내용이 길 수 있으므로 LongText
-  category  String   // '현장사진', '공사실적', '보유장비'
-  createdAt DateTime @default(now())
-  files     File[]
+  id          Int      @id @default(autoincrement())
+  title       String
+  content     String   @db.LongText  // 마크다운은 내용이 길 수 있으므로 LongText
+  category    String   // '현장사진', '공사실적', '보유장비'
+
+  // ✨ [신규 추가] 의뢰업체명
+  clientName  String?
+
+  // ✨ [신규 추가] 작업지 주소 + 좌표 (지도 마커 표시용)
+  workAddress String?
+  workLat     Float?
+  workLng     Float?
+
+  createdAt   DateTime @default(now())
+  files       File[]
+
+  // ✨ [신규 추가] 작업 키워드 (다대다 관계)
+  keywords    PostKeyword[]
 }
 
 model File {
@@ -42,6 +54,22 @@ model File {
   type      String // 'image', 'document', 'archive'
   postId    Int
   post      Post   @relation(fields: [postId], references: [id])
+}
+
+// ✨ [신규] 작업 키워드 마스터 테이블 (검색/카테고리 확장용)
+model Keyword {
+  id    Int           @id @default(autoincrement())
+  name  String        @unique
+  posts PostKeyword[]
+}
+
+model PostKeyword {
+  postId    Int
+  keywordId Int
+  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  keyword   Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@id([postId, keywordId])
 }
 
 // 고객 문의 수집 모델
