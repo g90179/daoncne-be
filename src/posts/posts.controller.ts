@@ -82,17 +82,17 @@ export class PostsController {
       }
     })
   }))
+
   async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     this.logger.log(`[게시물 생성] 요청 접수: ${body.title}`);
     try {
-      const { title, content, category, clientName, workAddress, workLat, workLng, keywords } = body;
+      const { title, content, category, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords } = body;
       const dbFiles = files?.map(f => ({
         url: `/uploads/${f.filename}`,
         name: f.originalname,
         type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file')
       })) || [];
 
-      // 에디터 썸네일 추출 로직...
       const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
       const match = content ? content.match(imgRegex) : null;
       if (match && match[1]) {
@@ -101,7 +101,6 @@ export class PostsController {
         dbFiles.unshift({ url: editorImgUrl, name: 'editor_thumbnail', type: 'image' });
       }
 
-      // ✨ 키워드 파싱 및 연결 페이로드 구성
       const keywordNames = this.parseKeywords(keywords);
 
       return await this.prisma.post.create({
@@ -113,6 +112,8 @@ export class PostsController {
           workAddress: workAddress?.trim() || null,
           workLat: workLat ? parseFloat(workLat) : null,
           workLng: workLng ? parseFloat(workLng) : null,
+          workYear: workYear ? parseInt(workYear, 10) : null,
+          workMonth: workMonth ? parseInt(workMonth, 10) : null,
           files: { create: dbFiles },
           keywords: { create: this.buildKeywordsCreatePayload(keywordNames) },
         },
@@ -158,8 +159,9 @@ export class PostsController {
         }
     })
   }))
+  
   async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
-    const { title, content, category, deletedFileIds, clientName, workAddress, workLat, workLng, keywords } = body;
+    const { title, content, category, deletedFileIds, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords } = body;
     const postId = Number(id);
 
     const updateData: any = {
@@ -170,6 +172,8 @@ export class PostsController {
       workAddress: workAddress?.trim() || null,
       workLat: workLat ? parseFloat(workLat) : null,
       workLng: workLng ? parseFloat(workLng) : null,
+      workYear: workYear ? parseInt(workYear, 10) : null,
+      workMonth: workMonth ? parseInt(workMonth, 10) : null,
     };
 
     let idsToDelete: number[] = [];

@@ -29,21 +29,20 @@ model User {
 model Post {
   id          Int      @id @default(autoincrement())
   title       String
-  content     String   @db.LongText  // 마크다운은 내용이 길 수 있으므로 LongText
-  category    String   // '현장사진', '공사실적', '보유장비'
+  content     String   @db.LongText
+  category    String
 
-  // ✨ [신규 추가] 의뢰업체명
   clientName  String?
-
-  // ✨ [신규 추가] 작업지 주소 + 좌표 (지도 마커 표시용)
   workAddress String?
   workLat     Float?
   workLng     Float?
 
+  // ✨ [신규 추가] 작업년도 / 작업월
+  workYear    Int?
+  workMonth   Int?
+
   createdAt   DateTime @default(now())
   files       File[]
-
-  // ✨ [신규 추가] 작업 키워드 (다대다 관계)
   keywords    PostKeyword[]
 }
 
