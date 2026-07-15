@@ -131,7 +131,7 @@ export class PostsController {
     return this.prisma.post.findMany({
       where: category ? { category } : {},
       include: { files: true, keywords: { include: { keyword: true } } }, // ✨ 키워드 포함
-      orderBy: { createdAt: 'desc' }
+      orderBy: { id: 'desc' }
     });
   }
 
