@@ -14,6 +14,7 @@ import { PoliciesModule } from './policies/policies.module'; // 정책관리
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // ✨ 전역 가드로 사용할 Guard 임포트
 import { RssModule } from './rss/rss.module'; // rss
 import { SitemapModule } from './sitemap/sitemap.module'; // sitemap
+import { MapPositionsModule } from './map-positions/map-positions.module'; // 메인 지도 전국 시공 현장
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { SitemapModule } from './sitemap/sitemap.module'; // sitemap
     PoliciesModule,
     PostsModule,
     RssModule,
-    SitemapModule
+    SitemapModule,
+    MapPositionsModule
   ],
   controllers: [AppController],
   providers: [

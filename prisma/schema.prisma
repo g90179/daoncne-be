@@ -141,3 +141,12 @@ model Policy {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// ✨ [신규] 메인의 지도 말풍선 위치 저장 (관리자가 지정한 위치를 모든 방문자에게 공통 적용)
+model MapTooltipPosition {
+  id          Int      @id @default(autoincrement())
+  locationKey String   @unique @db.VarChar(191)
+  offsetXPct  Float
+  offsetYPct  Float
+  updatedAt   DateTime @updatedAt
+}
