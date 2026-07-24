@@ -25,6 +25,17 @@ model User {
   createdAt DateTime @default(now())
 }
 
+// ✨ [신규] 홈페이지 방문자 분석 통계 로그 모델
+model VisitorLog {
+  id        Int      @id @default(autoincrement())
+  ip        String?  @db.VarChar(45)
+  region    String?  @db.VarChar(100)
+  device    String?  @db.Text // 접속 기기 및 User-Agent 정보
+  keyword   String?  @db.VarChar(255) // 검색 유입 키워드 또는 레퍼러
+  path      String?  @db.VarChar(255) // 방문한 페이지 경로
+  createdAt DateTime @default(now())
+}
+
 // 게시판 모델 (공지사항 등)
 model Post {
   id          Int      @id @default(autoincrement())
