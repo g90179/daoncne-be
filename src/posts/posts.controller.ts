@@ -13,7 +13,7 @@ import {
   Query,
   Logger,
   NotFoundException,
-  Res // ✨ Res 추가
+  Res
 } from '@nestjs/common';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,7 +21,7 @@ import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Public } from '../auth/decorators/public.decorator';
-import type { Response } from 'express'; // ✨ import type으로 변경
+import type { Response } from 'express';
 
 const API_URL = 'https://g90179.gabia.io';
 
@@ -30,7 +30,6 @@ export class PostsController {
   private readonly logger = new Logger(PostsController.name);
   constructor(private readonly prisma: PrismaService) {}
 
-  // ✨ [신규 헬퍼] Multer가 latin1로 잘못 해석한 originalname을 UTF-8로 복원
   private fixFileNameEncoding(originalname: string): string {
     try {
       return Buffer.from(originalname, 'latin1').toString('utf8');
@@ -66,24 +65,6 @@ export class PostsController {
     }));
   }
 
-
-  // ✨ [신규] 원본 파일명으로 다운로드되는 전용 엔드포인트
-  @Public()
-  @Get('files/:fileId/download')
-  async downloadFile(@Param('fileId') fileId: string, @Res() res: Response) {
-    const file = await this.prisma.file.findUnique({ where: { id: Number(fileId) } });
-    if (!file) throw new NotFoundException('파일을 찾을 수 없습니다.');
-
-    const filePath = path.join(__dirname, '..', '..', file.url);
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('서버에 파일이 존재하지 않습니다.');
-    }
-
-    // res.download()이 Content-Disposition 헤더를 자동으로 파일명 인코딩까지 처리해줌
-    res.download(filePath, file.name);
-  }
-
-  // CKEditor 5 이미지 업로드 전용 엔드포인트
   @Post('upload')
   @UseInterceptors(FileInterceptor('upload', {
     storage: diskStorage({
@@ -114,7 +95,7 @@ export class PostsController {
       const { title, content, category, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords } = body;
       const dbFiles = files?.map(f => ({
         url: `/uploads/${f.filename}`,
-        name: this.fixFileNameEncoding(f.originalname), // ✨ 인코딩 보정 적용
+        name: this.fixFileNameEncoding(f.originalname),
         type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file')
       })) || [];
 
@@ -160,6 +141,24 @@ export class PostsController {
     });
   }
 
+  // 🚀 [핵심 수정] 다운로드 라우터를 '@Get(':id')' 보다 무조건 위로 배치해야 합니다!
+  @Public()
+  @Get('files/:fileId/download')
+  async downloadFile(@Param('fileId') fileId: string, @Res() res: Response) {
+    const file = await this.prisma.file.findUnique({ where: { id: Number(fileId) } });
+    if (!file) throw new NotFoundException('DB에 파일 정보가 없습니다.');
+
+    // 🚀 서버 환경(가비아)에 관계없이 루트 경로를 기준으로 안전하게 파일 위치 탐색
+    const filePath = path.join(process.cwd(), 'uploads', path.basename(file.url));
+    
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('서버 스토리지에 실제 파일이 존재하지 않습니다.');
+    }
+
+    res.download(filePath, file.name);
+  }
+
+  // ⚠️ 와일드카드격인 ':id'는 특수 라우터(files/...)보다 아래에 있어야 합니다.
   @Public()
   @Get(':id')
   async findOne(@Param('id') id: string) {
@@ -218,7 +217,7 @@ export class PostsController {
       }
       return {
         url: `/uploads/${f.filename}`,
-        name: this.fixFileNameEncoding(f.originalname), // ✨ 인코딩 보정 적용
+        name: this.fixFileNameEncoding(f.originalname),
         type: type
       };
     }) || [];
@@ -278,7 +277,8 @@ export class PostsController {
 
     postWithFiles.files.forEach(file => {
       if (file.url.startsWith('/uploads/')) {
-        const filePath = path.join(__dirname, '..', '..', file.url);
+        // 이 부분도 process.cwd()로 맞춰주면 더 좋습니다.
+        const filePath = path.join(process.cwd(), 'uploads', path.basename(file.url));
 
         if (fs.existsSync(filePath)) {
           try {
