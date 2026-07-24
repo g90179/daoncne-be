@@ -12,14 +12,16 @@ import {
   UploadedFile,
   Query,
   Logger,
-  NotFoundException
+  NotFoundException,
+  Res // ✨ Res 추가
 } from '@nestjs/common';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Public } from '../auth/decorators/public.decorator'; 
+import { Public } from '../auth/decorators/public.decorator';
+import { Response } from 'express'; // ✨ 추가
 
 const API_URL = 'https://g90179.gabia.io';
 
@@ -28,7 +30,15 @@ export class PostsController {
   private readonly logger = new Logger(PostsController.name);
   constructor(private readonly prisma: PrismaService) {}
 
-  // ✨ [신규 헬퍼] FormData로 넘어온 키워드 JSON 문자열을 파싱해서 정제된 배열로 반환
+  // ✨ [신규 헬퍼] Multer가 latin1로 잘못 해석한 originalname을 UTF-8로 복원
+  private fixFileNameEncoding(originalname: string): string {
+    try {
+      return Buffer.from(originalname, 'latin1').toString('utf8');
+    } catch (e) {
+      return originalname;
+    }
+  }
+
   private parseKeywords(raw: any): string[] {
     if (!raw) return [];
     try {
@@ -45,7 +55,6 @@ export class PostsController {
     }
   }
 
-  // ✨ [신규 헬퍼] 키워드 이름 배열 → Prisma nested connectOrCreate 구문
   private buildKeywordsCreatePayload(keywordNames: string[]) {
     return keywordNames.map((name) => ({
       keyword: {
@@ -82,14 +91,13 @@ export class PostsController {
       }
     })
   }))
-
   async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     this.logger.log(`[게시물 생성] 요청 접수: ${body.title}`);
     try {
       const { title, content, category, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords } = body;
       const dbFiles = files?.map(f => ({
         url: `/uploads/${f.filename}`,
-        name: f.originalname,
+        name: this.fixFileNameEncoding(f.originalname), // ✨ 인코딩 보정 적용
         type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file')
       })) || [];
 
@@ -130,7 +138,7 @@ export class PostsController {
   async findAll(@Query('category') category: string) {
     return this.prisma.post.findMany({
       where: category ? { category } : {},
-      include: { files: true, keywords: { include: { keyword: true } } }, // ✨ 키워드 포함
+      include: { files: true, keywords: { include: { keyword: true } } },
       orderBy: { id: 'desc' }
     });
   }
@@ -140,7 +148,7 @@ export class PostsController {
   async findOne(@Param('id') id: string) {
     const post = await this.prisma.post.findUnique({
       where: { id: Number(id) },
-      include: { files: true, keywords: { include: { keyword: true } } }, // ✨ 키워드 포함
+      include: { files: true, keywords: { include: { keyword: true } } },
     });
     
     if (!post) {
@@ -159,7 +167,6 @@ export class PostsController {
         }
     })
   }))
-  
   async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     const { title, content, category, deletedFileIds, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords } = body;
     const postId = Number(id);
@@ -194,7 +201,7 @@ export class PostsController {
       }
       return {
         url: `/uploads/${f.filename}`,
-        name: f.originalname,
+        name: this.fixFileNameEncoding(f.originalname), // ✨ 인코딩 보정 적용
         type: type
       };
     }) || [];
@@ -226,10 +233,9 @@ export class PostsController {
       create: dbFiles
     };
 
-    // ✨ 키워드 갱신: 기존 연결 전부 해제 후 새로 연결 (파일 처리와 동일한 패턴)
     const keywordNames = this.parseKeywords(keywords);
     updateData.keywords = {
-      deleteMany: {}, // 이 포스트에 연결된 PostKeyword 전부 삭제 (Keyword 마스터 자체는 유지됨)
+      deleteMany: {},
       create: this.buildKeywordsCreatePayload(keywordNames),
     };
 
@@ -267,11 +273,25 @@ export class PostsController {
       }
     });
 
-    // ✨ keywords(PostKeyword)는 Prisma 스키마에 onDelete: Cascade로 걸려 있어서
-    //    post.delete() 시 자동으로 함께 정리됩니다. Keyword 마스터 자체는 남습니다.
     return this.prisma.$transaction(async (tx) => {
       await tx.file.deleteMany({ where: { postId: postId } });
       return tx.post.delete({ where: { id: postId } });
     });
+  }
+
+  // ✨ [신규] 원본 파일명으로 다운로드되는 전용 엔드포인트
+  @Public()
+  @Get('files/:fileId/download')
+  async downloadFile(@Param('fileId') fileId: string, @Res() res: Response) {
+    const file = await this.prisma.file.findUnique({ where: { id: Number(fileId) } });
+    if (!file) throw new NotFoundException('파일을 찾을 수 없습니다.');
+
+    const filePath = path.join(__dirname, '..', '..', file.url);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('서버에 파일이 존재하지 않습니다.');
+    }
+
+    // res.download()이 Content-Disposition 헤더를 자동으로 파일명 인코딩까지 처리해줌
+    res.download(filePath, file.name);
   }
 }
