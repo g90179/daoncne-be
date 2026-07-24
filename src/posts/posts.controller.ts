@@ -150,7 +150,7 @@ export class PostsController {
       where: { id: Number(id) },
       include: { files: true, keywords: { include: { keyword: true } } },
     });
-    
+
     if (!post) {
       throw new NotFoundException('게시글을 찾을 수 없습니다.');
     }
