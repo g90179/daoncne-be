@@ -1,6 +1,6 @@
 // src/visitor/visitor.service.ts
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service'; // 만약 prisma 폴더 안에 있다면 '../prisma/prisma.service'로 변경
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class VisitorService {
