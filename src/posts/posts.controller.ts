@@ -21,7 +21,7 @@ import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Public } from '../auth/decorators/public.decorator';
-import { Response } from 'express'; // ✨ 추가
+import type { Response } from 'express'; // ✨ import type으로 변경
 
 const API_URL = 'https://g90179.gabia.io';
 
