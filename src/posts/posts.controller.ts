@@ -66,6 +66,23 @@ export class PostsController {
     }));
   }
 
+
+  // ✨ [신규] 원본 파일명으로 다운로드되는 전용 엔드포인트
+  @Public()
+  @Get('files/:fileId/download')
+  async downloadFile(@Param('fileId') fileId: string, @Res() res: Response) {
+    const file = await this.prisma.file.findUnique({ where: { id: Number(fileId) } });
+    if (!file) throw new NotFoundException('파일을 찾을 수 없습니다.');
+
+    const filePath = path.join(__dirname, '..', '..', file.url);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('서버에 파일이 존재하지 않습니다.');
+    }
+
+    // res.download()이 Content-Disposition 헤더를 자동으로 파일명 인코딩까지 처리해줌
+    res.download(filePath, file.name);
+  }
+
   // CKEditor 5 이미지 업로드 전용 엔드포인트
   @Post('upload')
   @UseInterceptors(FileInterceptor('upload', {
@@ -277,21 +294,5 @@ export class PostsController {
       await tx.file.deleteMany({ where: { postId: postId } });
       return tx.post.delete({ where: { id: postId } });
     });
-  }
-
-  // ✨ [신규] 원본 파일명으로 다운로드되는 전용 엔드포인트
-  @Public()
-  @Get('files/:fileId/download')
-  async downloadFile(@Param('fileId') fileId: string, @Res() res: Response) {
-    const file = await this.prisma.file.findUnique({ where: { id: Number(fileId) } });
-    if (!file) throw new NotFoundException('파일을 찾을 수 없습니다.');
-
-    const filePath = path.join(__dirname, '..', '..', file.url);
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('서버에 파일이 존재하지 않습니다.');
-    }
-
-    // res.download()이 Content-Disposition 헤더를 자동으로 파일명 인코딩까지 처리해줌
-    res.download(filePath, file.name);
   }
 }
