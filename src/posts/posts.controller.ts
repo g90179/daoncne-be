@@ -65,6 +65,29 @@ export class PostsController {
     }));
   }
 
+  // ✨ [신규 헬퍼] thumbnailUrl 우선, 없으면 본문 첫 <img> 정규식 fallback
+  private resolveThumbnail(thumbnailUrl: any, content: string | undefined): { url: string; name: string; type: string } | null {
+    if (thumbnailUrl) {
+      let normalizedUrl = String(thumbnailUrl);
+      if (normalizedUrl.includes('/uploads/')) {
+        normalizedUrl = '/uploads/' + normalizedUrl.split('/uploads/')[1];
+      }
+      return { url: normalizedUrl, name: 'editor_thumbnail', type: 'image' };
+    }
+
+    const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
+    const match = content ? content.match(imgRegex) : null;
+    if (match && match[1]) {
+      let editorImgUrl = match[1];
+      if (editorImgUrl.includes('/uploads/')) {
+        editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
+      }
+      return { url: editorImgUrl, name: 'editor_thumbnail', type: 'image' };
+    }
+
+    return null;
+  }
+
   @Post('upload')
   @UseInterceptors(FileInterceptor('upload', {
     storage: diskStorage({
@@ -92,19 +115,17 @@ export class PostsController {
   async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     this.logger.log(`[게시물 생성] 요청 접수: ${body.title}`);
     try {
-      const { title, content, category, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords } = body;
+      const { title, content, category, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords, thumbnailUrl } = body;
       const dbFiles = files?.map(f => ({
         url: `/uploads/${f.filename}`,
         name: this.fixFileNameEncoding(f.originalname),
         type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file')
       })) || [];
 
-      const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
-      const match = content ? content.match(imgRegex) : null;
-      if (match && match[1]) {
-        let editorImgUrl = match[1];
-        if (editorImgUrl.includes('/uploads/')) editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
-        dbFiles.unshift({ url: editorImgUrl, name: 'editor_thumbnail', type: 'image' });
+      // ✨ 썸네일 결정: thumbnailUrl 우선, 없으면 본문에서 추출
+      const thumbnail = this.resolveThumbnail(thumbnailUrl, content);
+      if (thumbnail) {
+        dbFiles.unshift(thumbnail);
       }
 
       const keywordNames = this.parseKeywords(keywords);
@@ -141,16 +162,15 @@ export class PostsController {
     });
   }
 
-  // 🚀 [핵심 수정] 다운로드 라우터를 '@Get(':id')' 보다 무조건 위로 배치해야 합니다!
+  // 🚀 다운로드 라우터는 ':id'보다 반드시 위에 있어야 함
   @Public()
   @Get('files/:fileId/download')
   async downloadFile(@Param('fileId') fileId: string, @Res() res: Response) {
     const file = await this.prisma.file.findUnique({ where: { id: Number(fileId) } });
     if (!file) throw new NotFoundException('DB에 파일 정보가 없습니다.');
 
-    // 🚀 서버 환경(가비아)에 관계없이 루트 경로를 기준으로 안전하게 파일 위치 탐색
     const filePath = path.join(process.cwd(), 'uploads', path.basename(file.url));
-    
+
     if (!fs.existsSync(filePath)) {
       throw new NotFoundException('서버 스토리지에 실제 파일이 존재하지 않습니다.');
     }
@@ -158,7 +178,7 @@ export class PostsController {
     res.download(filePath, file.name);
   }
 
-  // ⚠️ 와일드카드격인 ':id'는 특수 라우터(files/...)보다 아래에 있어야 합니다.
+  // ⚠️ 와일드카드격인 ':id'는 특수 라우터(files/...)보다 아래에 있어야 함
   @Public()
   @Get(':id')
   async findOne(@Param('id') id: string) {
@@ -184,7 +204,7 @@ export class PostsController {
     })
   }))
   async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
-    const { title, content, category, deletedFileIds, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords } = body;
+    const { title, content, category, deletedFileIds, clientName, workAddress, workLat, workLng, workYear, workMonth, keywords, thumbnailUrl } = body;
     const postId = Number(id);
 
     const updateData: any = {
@@ -222,19 +242,10 @@ export class PostsController {
       };
     }) || [];
 
-    const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
-    const match = content ? content.match(imgRegex) : null;
-
-    if (match && match[1]) {
-      let editorImgUrl = match[1];
-      if (editorImgUrl.includes('/uploads/')) {
-        editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
-      }
-      dbFiles.unshift({
-        url: editorImgUrl,
-        name: 'editor_thumbnail',
-        type: 'image'
-      });
+    // ✨ 썸네일 결정: thumbnailUrl 우선, 없으면 본문에서 추출 (중복 없이 한 번만)
+    const thumbnail = this.resolveThumbnail(thumbnailUrl, content);
+    if (thumbnail) {
+      dbFiles.unshift(thumbnail);
     }
 
     const deleteConditions: any[] = [{ name: 'editor_thumbnail' }];
@@ -277,7 +288,6 @@ export class PostsController {
 
     postWithFiles.files.forEach(file => {
       if (file.url.startsWith('/uploads/')) {
-        // 이 부분도 process.cwd()로 맞춰주면 더 좋습니다.
         const filePath = path.join(process.cwd(), 'uploads', path.basename(file.url));
 
         if (fs.existsSync(filePath)) {
