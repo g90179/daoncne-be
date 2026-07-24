@@ -15,6 +15,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // ✨ 전역 가�
 import { RssModule } from './rss/rss.module'; // rss
 import { SitemapModule } from './sitemap/sitemap.module'; // sitemap
 import { MapPositionsModule } from './map-positions/map-positions.module'; // 메인 지도 전국 시공 현장
+import { VisitorModule } from './visitor/visitor.module'; // 방문자 통계
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { MapPositionsModule } from './map-positions/map-positions.module'; // �
     PostsModule,
     RssModule,
     SitemapModule,
-    MapPositionsModule
+    MapPositionsModule,
+    VisitorModule,
   ],
   controllers: [AppController],
   providers: [
