@@ -36,26 +36,32 @@ model VisitorLog {
   createdAt DateTime @default(now())
 }
 
-// 게시판 모델 (공지사항 등)
+// 게시판 모델 (공지사항, 공사실적, 보유장비 통합)
 model Post {
   id          Int      @id @default(autoincrement())
   title       String
   content     String   @db.LongText
-  category    String
+  category    String   // "공사실적", "보유장비" 등으로 구분
 
+  // 🏢 공사실적 공통 필드 (Optional)
   clientName  String?
   workAddress String?
   workLat     Float?
   workLng     Float?
-
-  // ✨ [신규 추가] 작업년도 / 작업월
   workYear    Int?
   workMonth   Int?
+
+  // 🚜 [신규 추가] 보유장비 전용 세부 필드 (Optional)
+  specifications  String?  // 규격 및 재원
+  quantity        String?  // 보유량 (예: "2대")
+  mappingYear     String?  // 제조 년도 (프론트엔드 input 대응을 위해 String)
+  managementGrade String?  // 관리 등급 (최상, 양호 등)
 
   createdAt   DateTime @default(now())
   files       File[]
   keywords    PostKeyword[]
 }
+
 
 model File {
   id        Int    @id @default(autoincrement())
