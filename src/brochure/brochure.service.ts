@@ -40,7 +40,6 @@ export class BrochureService {
     return path.join(process.cwd(), 'assets', 'fonts', name);
   }
 
-  // ✨ [핵심] 아이템 개수를 주어진 높이 안에 절대 넘치지 않게 맞추는 계산기
   private fitRows(count: number, availableHeight: number, minRowH: number, maxRowH: number): FitRowsResult {
     if (count <= 0) return { rowH: maxRowH, shown: 0, remainder: 0 };
 
@@ -93,7 +92,7 @@ export class BrochureService {
     this.fillPageBg(doc);
     this.renderCompanyInfo(doc, company);
 
-    // 3. 장비보유현황 (페이지당 최대 20개 제한, 초과 시 페이지 분할)
+    // 3. 장비보유현황 (페이지당 최대 20개 제한)
     this.renderEquipmentPages(doc, equipmentPosts);
 
     // 4. 최근 프로젝트 (공사실적 카테고리만, 정확히 1페이지)
@@ -101,11 +100,9 @@ export class BrochureService {
     this.fillPageBg(doc);
     this.renderFeaturedPortfolio(doc, featured);
 
-    // 5. 연도별 시공 실적 (공사실적 나머지, 정확히 1페이지)
+    // 5. 연도별 시공 실적 (첨부 이미지 타일 스타일, 연도 단위 페이지 분할 적용)
     if (rest.length > 0) {
-      doc.addPage();
-      this.fillPageBg(doc);
-      this.renderPortfolioList(doc, rest);
+      this.renderTimelinePortfolioPages(doc, rest);
     }
 
     doc.end();
@@ -139,22 +136,6 @@ export class BrochureService {
     doc.roundedRect(x, y, w, h, h / 2).fill(bg);
     doc.fillColor(color).text(text, x, y + h / 2 - fontSize / 2 - 1, { width: w, align: 'center' });
     return w;
-  }
-
-  private drawYearPill(doc: PDFKit.PDFDocument, year: string, x: number, y: number, fontSize = 10) {
-    doc.font('KR-Bold').fontSize(fontSize);
-    const label = `${year} PERFORMANCE`;
-    const w = doc.widthOfString(label) + 22;
-    const h = fontSize + 12;
-    doc.roundedRect(x, y, w, h, h / 2).fill(COLOR.badgeBg);
-    doc.fillColor(COLOR.badgeText).text(label, x, y + h / 2 - fontSize / 2 - 1, { width: w, align: 'center' });
-    return { w, h };
-  }
-
-  private drawRemainderNote(doc: PDFKit.PDFDocument, x: number, y: number, width: number, remainder: number, fontSize = 9) {
-    if (remainder <= 0) return;
-    doc.font('KR').fontSize(fontSize).fillColor(COLOR.faint)
-      .text(`외 ${remainder}건은 지면 관계상 생략되었습니다.`, x, y, { width, align: 'center' });
   }
 
   // ── 페이지별 렌더링 ──────────────────────────────
@@ -210,7 +191,6 @@ export class BrochureService {
     doc.y = cardY + cardH + 24;
   }
 
-  // ✨ [신규] 장비보유현황: 페이지당 최대 20개 제한 및 상세 정보(규격, 보유량, 제조년도, 관리등급) 표시
   private renderEquipmentPages(doc: PDFKit.PDFDocument, posts: any[]) {
     const ITEMS_PER_PAGE = 20;
 
@@ -223,7 +203,6 @@ export class BrochureService {
       return;
     }
 
-    // 20개씩 쪼개서 페이지 생성
     for (let i = 0; i < posts.length; i += ITEMS_PER_PAGE) {
       const pagePosts = posts.slice(i, i + ITEMS_PER_PAGE);
 
@@ -234,7 +213,7 @@ export class BrochureService {
       const cardX = 50;
       const cardW = doc.page.width - 100;
       const availableHeight = doc.page.height - 50 - doc.y;
-      const rowH = Math.min(availableHeight / pagePosts.length, 32); // 20개 기준 높이 자동 맞춤 (최대 32px)
+      const rowH = Math.min(availableHeight / pagePosts.length, 32);
       const fontSize = 8;
       const thumbSize = Math.min(rowH - 8, 24);
 
@@ -242,7 +221,6 @@ export class BrochureService {
       pagePosts.forEach((post) => {
         this.drawCardBg(doc, cardX, rowY, cardW, rowH - 3);
 
-        // 1. 썸네일 이미지
         const thumbX = cardX + 8;
         const thumbY = rowY + (rowH - 3 - thumbSize) / 2;
         const imageFile = post.files?.find((f: any) => f.type === 'image');
@@ -266,25 +244,20 @@ export class BrochureService {
 
         const textX = thumbX + thumbSize + 10;
         
-        // 2. 장비명 (Title)
         doc.font('KR-Bold').fontSize(fontSize + 0.5).fillColor(COLOR.ink)
           .text(post.title, textX, rowY + 6, { width: 160, lineBreak: false, ellipsis: true });
 
-        // 3. 규격 정보 (Specifications)
         doc.font('KR').fontSize(fontSize - 0.5).fillColor(COLOR.sub)
           .text(`규격: ${post.specifications || '-'}`, textX, rowY + 16, { width: 160, lineBreak: false, ellipsis: true });
 
-        // 4. 보유량 (Quantity)
         const qtyX = cardX + 285;
         doc.font('KR').fontSize(fontSize).fillColor(COLOR.ink)
           .text(`보유량: ${post.quantity || '-'}`, qtyX, rowY + 10, { width: 75, align: 'center', lineBreak: false });
 
-        // 5. 제조년도 (Mapping Year)
         const yearX = qtyX + 75;
         doc.font('KR').fontSize(fontSize).fillColor(COLOR.sub)
           .text(`제조: ${post.mappingYear || '-'}`, yearX, rowY + 10, { width: 75, align: 'center', lineBreak: false });
 
-        // 6. 관리 등급 (Management Grade Badge)
         const grade = post.managementGrade || '양호';
         const gradeX = yearX + 75;
         this.drawBadge(doc, grade, gradeX, rowY + (rowH - 3 - 16) / 2, { 
@@ -298,7 +271,6 @@ export class BrochureService {
     }
   }
 
-  // ✨ 최근 프로젝트: 공사실적만, 카드 높이를 자동으로 줄여 정확히 1페이지
   private renderFeaturedPortfolio(doc: PDFKit.PDFDocument, posts: any[]) {
     this.drawSectionHeader(doc, '최근 프로젝트');
 
@@ -371,16 +343,9 @@ export class BrochureService {
     this.drawRemainderNote(doc, cardX, cardY - gap + 6, cardW, remainder);
   }
 
-  // 연도별 시공 실적: 2열 컴팩트 그리드, 정확히 1페이지
-  private renderPortfolioList(doc: PDFKit.PDFDocument, posts: any[]) {
-    this.drawSectionHeader(doc, '연도별 시공 실적');
-
-    const cardX = 50;
-    const cardW = doc.page.width - 100;
-    const colGap = 14;
-    const colW = (cardW - colGap) / 2;
-    const availableHeight = doc.page.height - 50 - doc.y;
-
+  // ✨ [신규] 첨부 이미지 스타일의 2단 타임라인 연도별 실적 렌더링 (연도 단위 페이지 자동 분할)
+  private renderTimelinePortfolioPages(doc: PDFKit.PDFDocument, posts: any[]) {
+    // 1. 연도별 그룹화 및 내림차순 정렬
     const grouped = new Map<string, any[]>();
     posts.forEach((post) => {
       const year = post.workYear ? String(post.workYear) : String(new Date(post.createdAt).getFullYear());
@@ -389,56 +354,89 @@ export class BrochureService {
     });
     const years = Array.from(grouped.keys()).sort((a, b) => Number(b) - Number(a));
 
-    let totalRows = 0;
-    years.forEach((year) => {
-      totalRows += 1; 
-      totalRows += Math.ceil(grouped.get(year)!.length / 2);
-    });
+    let currentYearIdx = 0;
 
-    const { rowH } = this.fitRows(totalRows, availableHeight, 16, 30);
-    const fontSize = rowH < 22 ? 7.5 : 9;
-    const yearPillFontSize = rowH < 22 ? 8 : 10;
+    while (currentYearIdx < years.length) {
+      doc.addPage();
+      this.fillPageBg(doc);
+      this.drawSectionHeader(doc, '연도별 시공 실적');
 
-    let y = doc.y;
-    let itemsShown = 0;
-    let totalRemainder = 0;
+      const pageLeft = 50;
+      const pageRight = doc.page.width - 50;
+      const usableWidth = pageRight - pageLeft;
+      const colWidth = (usableWidth - 30) / 2; // 2단 레이아웃 (좌우 폭 및 간격)
+      
+      let cursorY = doc.y;
+      const maxY = doc.page.height - 50;
 
-    yearLoop: for (const year of years) {
-      if (y + rowH > doc.page.height - 50) {
-        totalRemainder += posts.length - itemsShown;
-        break;
-      }
+      while (currentYearIdx < years.length) {
+        const year = years[currentYearIdx];
+        const items = grouped.get(year)!;
 
-      const pill = this.drawYearPill(doc, year, cardX, y, yearPillFontSize);
-      y += pill.h + 6;
+        // 연도 헤더 및 타임라인 요소들의 예상 높이 계산
+        const headerHeight = 28;
+        // 항목당 대략 2줄 높이 (제목 + 발주처)
+        const estimatedItemH = 36; 
+        const totalItemsHeight = Math.ceil(items.length / 2) * estimatedItemH + headerHeight;
 
-      const items = grouped.get(year)!;
-      for (let i = 0; i < items.length; i += 2) {
-        if (y + rowH > doc.page.height - 50) {
-          totalRemainder += posts.length - itemsShown;
-          break yearLoop;
+        // 남은 공간을 초과하면 다음 페이지로 넘김 (연도 단위 분할)
+        if (cursorY !== doc.y && cursorY + totalItemsHeight > maxY) {
+          break;
         }
 
-        const pairItems = items.slice(i, i + 2);
-        pairItems.forEach((post, colIdx) => {
-          const itemX = cardX + colIdx * (colW + colGap);
-          this.drawCardBg(doc, itemX, y, colW, rowH - 4);
-          doc.font('KR-Bold').fontSize(fontSize).fillColor(COLOR.ink)
-            .text(post.title, itemX + 10, y + 4, { width: colW - 20, lineBreak: false, ellipsis: true });
-          doc.font('KR').fontSize(fontSize - 1).fillColor(COLOR.sub)
-            .text(`발주/시공사: ${post.clientName || '미지정'}`, itemX + 10, y + rowH / 2, { width: colW - 60, lineBreak: false, ellipsis: true });
-          this.drawBadge(doc, 'SUCCESS', itemX + colW - 56, y + rowH / 2 - 6, { bg: '#f8fafc', color: COLOR.faint, fontSize: 6.5 });
-          itemsShown += 1;
-        });
+        // --- 연도 헤더 그리기 (예: 2021) ---
+        doc.font('KR-Bold').fontSize(16).fillColor(COLOR.ink).text(year, pageLeft, cursorY);
+        
+        // 세로 타임라인 가이드 선 (연도 헤더 우측에 수직선 배치)
+        const lineX = pageLeft + 48;
+        const timelineTopY = cursorY + 4;
+        
+        cursorY += headerHeight;
 
-        y += rowH;
+        // --- 2단 그리드로 해당 연도의 실적 아이템들 배치 ---
+        let maxRowBottomY = cursorY;
+
+        for (let i = 0; i < items.length; i++) {
+          const col = i % 2; // 0: 왼쪽 열, 1: 오른쪽 열
+          const row = Math.floor(i / 2);
+          
+          const colX = pageLeft + (col === 0 ? 70 : colWidth + 30);
+          // 짝수 번째 아이템 시작할 때 Y 좌표 계산
+          const itemY = cursorY + (row * estimatedItemH);
+
+          if (itemY + estimatedItemH > maxY) {
+            // 공간이 부족하면 이번 연도 출력 중단 후 다음 페이지 처리
+            break;
+          }
+
+          const post = items[i];
+          const clientText = `발주/시공사: ${post.clientName || '미지정'}`;
+
+          // 타임라인 도트 (파란색 원 포인트)
+          if (col === 0) {
+            doc.circle(lineX, itemY + 6, 3.5).fill(COLOR.accent);
+          }
+
+          // 텍스트 출력
+          doc.font('KR-Bold').fontSize(9).fillColor(COLOR.ink)
+            .text(post.title, colX, itemY, { width: colWidth - 20, lineBreak: true });
+          
+          doc.font('KR').fontSize(7.5).fillColor(COLOR.sub)
+            .text(clientText, colX, doc.y + 2, { width: colWidth - 20, lineBreak: true });
+
+          maxRowBottomY = Math.max(maxRowBottomY, doc.y + 8);
+        }
+
+        // 해당 연도의 전체 콘텐츠가 차지한 만큼 수직 타임라인 실선 연결
+        doc.moveTo(lineX, timelineTopY)
+          .lineTo(lineX, maxRowBottomY - 4)
+          .strokeColor('#cbd5e1')
+          .lineWidth(1.5)
+          .stroke();
+
+        cursorY = maxRowBottomY + 14;
+        currentYearIdx++; // 이 연도 완료 처리
       }
-
-      y += 8;
-    }
-
-    if (totalRemainder > 0) {
-      this.drawRemainderNote(doc, cardX, doc.page.height - 60, cardW, totalRemainder, 8);
     }
   }
 }
