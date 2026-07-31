@@ -1,7 +1,7 @@
 // daon-backend/src/brochure/brochure.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument = require('pdfkit');
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Response } from 'express';
