@@ -70,7 +70,6 @@ export class BrochureService {
     ]);
 
     const featured = constructionPosts.slice(0, FEATURED_COUNT);
-    const rest = constructionPosts.slice(FEATURED_COUNT);
 
     const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
 
@@ -95,14 +94,14 @@ export class BrochureService {
     // 3. 장비보유현황 (페이지당 최대 20개 제한)
     this.renderEquipmentPages(doc, equipmentPosts);
 
-    // 4. 최근 프로젝트 (공사실적 카테고리만, 정확히 1페이지)
+    // 4. 최근 프로젝트 (공사실적 상위 6개, 정확히 1페이지)
     doc.addPage();
     this.fillPageBg(doc);
     this.renderFeaturedPortfolio(doc, featured);
 
-    // 5. 연도별 시공 실적 (타일 타임라인 스타일, 연도 단위 페이지 자동 분할)
-    if (rest.length > 0) {
-      this.renderTimelinePortfolioPages(doc, rest);
+    // 5. 연도별 시공 실적 (공사실적 데이터 전체 반영, 타임라인 스타일 및 연도 단위 자동 페이지 분할)
+    if (constructionPosts.length > 0) {
+      this.renderTimelinePortfolioPages(doc, constructionPosts);
     }
 
     doc.end();
