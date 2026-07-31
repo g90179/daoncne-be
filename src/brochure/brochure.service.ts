@@ -6,8 +6,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Response } from 'express';
 
-// ✨ 최근 몇 건까지 썸네일과 함께 크게 보여줄지 (그 이후는 연도별 간단 목록)
 const FEATURED_COUNT = 8;
+
+// ✨ 팔레트 (회사소개 페이지 톤과 맞춤)
+const COLOR = {
+  bg: '#f8fafc',
+  card: '#ffffff',
+  border: '#e2e8f0',
+  accent: '#3b82f6',
+  ink: '#0f172a',
+  sub: '#64748b',
+  faint: '#94a3b8',
+  badgeBg: '#0f172a',
+  badgeText: '#ffffff',
+  pillBg: '#eff6ff',
+  pillText: '#2563eb',
+};
 
 @Injectable()
 export class BrochureService {
@@ -46,99 +60,190 @@ export class BrochureService {
     doc.registerFont('KR-Bold', this.fontPath('NotoSansKR-Bold.ttf'));
 
     this.renderCover(doc, company);
+
     doc.addPage();
+    this.fillPageBg(doc);
     this.renderCompanyInfo(doc, company);
+
     doc.addPage();
+    this.fillPageBg(doc);
     this.renderFeaturedPortfolio(doc, featured);
+
     if (rest.length > 0) {
       doc.addPage();
+      this.fillPageBg(doc);
       this.renderPortfolioList(doc, rest);
     }
 
     doc.end();
   }
 
-  private renderCover(doc: PDFKit.PDFDocument, company: any) {
-    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#0f172a');
-    doc.fillColor('#60a5fa').font('KR-Bold').fontSize(12)
-      .text('DAON C&E COMPANY BROCHURE', 50, 120);
-    doc.fillColor('#ffffff').font('KR-Bold').fontSize(32)
-      .text(company?.name || '다온씨엔이', 50, 150, { width: 400 });
-    doc.fillColor('#94a3b8').font('KR').fontSize(11)
-      .text(`생성일: ${new Date().toLocaleDateString('ko-KR')}`, 50, 210);
-    doc.fillColor('#cbd5e1').font('KR').fontSize(10)
-      .text('본 문서는 다운로드 시점의 최신 정보를 기준으로 자동 생성됩니다.', 50, doc.page.height - 80, { width: 400 });
+  // ── 공용 드로잉 헬퍼 ──────────────────────────────
+
+  private fillPageBg(doc: PDFKit.PDFDocument) {
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill(COLOR.bg);
+    doc.fillColor(COLOR.ink); // 이후 텍스트 색 리셋
   }
 
+  // 회사소개 페이지의 "파란 좌측 바 + 굵은 제목" 헤더를 재해석
+  private drawSectionHeader(doc: PDFKit.PDFDocument, title: string, x = 50) {
+    const y = doc.y;
+    doc.rect(x, y + 2, 3, 14).fill(COLOR.accent);
+    doc.fillColor(COLOR.ink).font('KR-Bold').fontSize(14).text(title, x + 12, y);
+    doc.moveDown(1.2);
+  }
+
+  // 둥근 흰 카드 배경을 그리고, 카드 내부 콘텐츠 시작 y를 반환
+  private drawCardBg(doc: PDFKit.PDFDocument, x: number, y: number, width: number, height: number) {
+    doc.roundedRect(x, y, width, height, 14).fill(COLOR.card).strokeColor(COLOR.border).lineWidth(1).roundedRect(x, y, width, height, 14).stroke();
+  }
+
+  // 검정 필 뱃지 (예: "SUCCESS", 카테고리 등)
+  private drawBadge(doc: PDFKit.PDFDocument, text: string, x: number, y: number, opts?: { bg?: string; color?: string }) {
+    const bg = opts?.bg || COLOR.badgeBg;
+    const color = opts?.color || COLOR.badgeText;
+    doc.font('KR-Bold').fontSize(8);
+    const w = doc.widthOfString(text) + 16;
+    doc.roundedRect(x, y, w, 16, 8).fill(bg);
+    doc.fillColor(color).text(text, x, y + 4, { width: w, align: 'center' });
+    return w;
+  }
+
+  // 연도 라벨용 검정 필 (연도별 실적 헤더와 동일한 톤)
+  private drawYearPill(doc: PDFKit.PDFDocument, year: string, x: number, y: number) {
+    doc.font('KR-Bold').fontSize(10);
+    const label = `${year} PERFORMANCE`;
+    const w = doc.widthOfString(label) + 24;
+    doc.roundedRect(x, y, w, 22, 10).fill(COLOR.badgeBg);
+    doc.fillColor(COLOR.badgeText).text(label, x, y + 6, { width: w, align: 'center' });
+    return w;
+  }
+
+  // ── 페이지별 렌더링 ──────────────────────────────
+
+  private renderCover(doc: PDFKit.PDFDocument, company: any) {
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#0f172a');
+    doc.fillColor('#60a5fa').font('KR-Bold').fontSize(11)
+      .text('DAON C&E COMPANY BROCHURE', 50, 120);
+    doc.fillColor('#ffffff').font('KR-Bold').fontSize(30)
+      .text(company?.name || '다온씨엔이', 50, 148, { width: 420 });
+    doc.fillColor('#94a3b8').font('KR').fontSize(10)
+      .text(`생성일: ${new Date().toLocaleDateString('ko-KR')}`, 50, 205);
+    doc.fillColor('#cbd5e1').font('KR').fontSize(9)
+      .text('본 문서는 다운로드 시점의 최신 정보를 기준으로 자동 생성됩니다.', 50, doc.page.height - 80, { width: 420 });
+  }
+
+  // "기업 개요 명세" 카드를 재해석: 흰 카드 + 파란 헤더 바 + label/value 행
   private renderCompanyInfo(doc: PDFKit.PDFDocument, company: any) {
-    doc.fillColor('#0f172a').font('KR-Bold').fontSize(20).text('회사 소개');
-    doc.moveDown(1);
+    this.drawSectionHeader(doc, '기업 개요 명세');
 
     const rows: [string, string][] = [
+      ['회사명', company?.name || '-'],
       ['대표자', company?.ceo || '-'],
       ['사업자등록번호', company?.bizNumber || '-'],
-      ['주소', [company?.address, company?.addressDetail].filter(Boolean).join(' ') || '-'],
+      ['소재지', [company?.address, company?.addressDetail].filter(Boolean).join(' ') || '-'],
       ['전화', company?.phone || '-'],
       ['이메일', company?.email || '-'],
       ['팩스', company?.fax || '-'],
     ];
 
-    doc.font('KR').fontSize(11);
-    rows.forEach(([label, value]) => {
-      doc.fillColor('#64748b').text(label, { continued: true, width: 120 });
-      doc.fillColor('#0f172a').text(`   ${value}`);
-      doc.moveDown(0.5);
+    const cardX = 50;
+    const cardW = doc.page.width - 100;
+    const rowH = 30;
+    const cardH = rows.length * rowH + 24;
+    const cardY = doc.y;
+
+    this.drawCardBg(doc, cardX, cardY, cardW, cardH);
+
+    let rowY = cardY + 16;
+    rows.forEach(([label, value], idx) => {
+      doc.font('KR').fontSize(10).fillColor(COLOR.sub)
+        .text(label, cardX + 20, rowY + 8, { width: 130 });
+      doc.font('KR-Bold').fontSize(10).fillColor(COLOR.ink)
+        .text(value, cardX + 160, rowY + 8, { width: cardW - 200, align: 'right' });
+
+      if (idx < rows.length - 1) {
+        doc.moveTo(cardX + 20, rowY + rowH - 4)
+          .lineTo(cardX + cardW - 20, rowY + rowH - 4)
+          .strokeColor(COLOR.border).lineWidth(0.5).stroke();
+      }
+      rowY += rowH;
     });
+
+    doc.y = cardY + cardH + 24;
   }
 
+  // "장비보유현황" 테이블 느낌을 개별 카드 리스트(썸네일+제목+뱃지)로 재해석
   private renderFeaturedPortfolio(doc: PDFKit.PDFDocument, posts: any[]) {
-    doc.fillColor('#0f172a').font('KR-Bold').fontSize(20).text('최근 프로젝트');
-    doc.moveDown(1);
+    this.drawSectionHeader(doc, '최근 프로젝트');
 
     posts.forEach((post) => {
-      if (doc.y > doc.page.height - 220) doc.addPage();
+      const cardH = 96;
+      if (doc.y + cardH > doc.page.height - 50) {
+        doc.addPage();
+        this.fillPageBg(doc);
+      }
 
+      const cardX = 50;
+      const cardW = doc.page.width - 100;
+      const cardY = doc.y;
+
+      this.drawCardBg(doc, cardX, cardY, cardW, cardH);
+
+      // 썸네일 (원형 마스크 대신 라운드 사각형으로 카드 톤 유지)
       const imageFile = post.files?.find((f: any) => f.type === 'image');
-      const startY = doc.y;
-
+      const thumbX = cardX + 16;
+      const thumbY = cardY + (cardH - 64) / 2;
       if (imageFile) {
         try {
           const imgPath = path.join(process.cwd(), 'uploads', path.basename(imageFile.url));
           if (fs.existsSync(imgPath)) {
-            doc.image(imgPath, 50, startY, { width: 130, height: 90, fit: [130, 90] });
+            doc.save();
+            doc.roundedRect(thumbX, thumbY, 64, 64, 10).clip();
+            doc.image(imgPath, thumbX, thumbY, { width: 64, height: 64, fit: [64, 64] });
+            doc.restore();
           }
         } catch (e) {
-          // 지원하지 않는 이미지 형식 등은 건너뜀 (예: webp)
+          // 미지원 이미지 포맷은 건너뜀
         }
+      } else {
+        doc.roundedRect(thumbX, thumbY, 64, 64, 10).fill('#f1f5f9');
       }
 
-      const textX = 200;
-      doc.font('KR-Bold').fontSize(13).fillColor('#0f172a')
-        .text(post.title, textX, startY, { width: 340 });
+      // 텍스트 블록
+      const textX = thumbX + 64 + 20;
+      const textW = cardW - (textX - cardX) - 100;
+      doc.font('KR-Bold').fontSize(11).fillColor(COLOR.ink)
+        .text(post.title, textX, cardY + 16, { width: textW });
 
       const dateLabel = post.workYear
         ? `${post.workYear}.${post.workMonth || ''}`
         : new Date(post.createdAt).toLocaleDateString('ko-KR');
-      doc.font('KR').fontSize(9).fillColor('#3b82f6')
-        .text(`${post.category || ''} · ${dateLabel}`, textX, doc.y + 2);
+      doc.font('KR').fontSize(8).fillColor(COLOR.sub)
+        .text(`발주/시공사: ${post.clientName || '미지정'}   ·   ${dateLabel}`, textX, doc.y + 4, { width: textW });
 
-      if (post.clientName) {
-        doc.fillColor('#64748b').fontSize(9).text(`의뢰: ${post.clientName}`, textX, doc.y + 2);
+      const summary = this.stripHtml(post.content).slice(0, 60);
+      if (summary) {
+        doc.font('KR').fontSize(8).fillColor(COLOR.faint)
+          .text(summary, textX, doc.y + 4, { width: textW });
       }
 
-      const summary = this.stripHtml(post.content).slice(0, 80);
-      doc.fillColor('#334155').fontSize(9).text(summary, textX, doc.y + 4, { width: 340 });
+      // 우측 카테고리 뱃지 (연도별 실적의 "SUCCESS" 뱃지 톤)
+      const badgeText = post.category || 'PROJECT';
+      doc.font('KR-Bold').fontSize(8);
+      const badgeW = doc.widthOfString(badgeText) + 16;
+      this.drawBadge(doc, badgeText, cardX + cardW - badgeW - 16, cardY + 16, {
+        bg: COLOR.pillBg,
+        color: COLOR.pillText,
+      });
 
-      doc.y = Math.max(doc.y, startY + 100);
-      doc.moveDown(1);
-      doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).strokeColor('#e2e8f0').stroke();
-      doc.moveDown(1);
+      doc.y = cardY + cardH + 14;
     });
   }
 
+  // "연도별 공실적" 탭 구조(검정 필 헤더 + 카드 그리드)를 그대로 재해석
   private renderPortfolioList(doc: PDFKit.PDFDocument, posts: any[]) {
-    doc.fillColor('#0f172a').font('KR-Bold').fontSize(20).text('연도별 시공 실적');
-    doc.moveDown(1);
+    this.drawSectionHeader(doc, '연도별 시공 실적');
 
     const grouped = new Map<string, any[]>();
     posts.forEach((post) => {
@@ -148,19 +253,42 @@ export class BrochureService {
     });
 
     const years = Array.from(grouped.keys()).sort((a, b) => Number(b) - Number(a));
+    const cardX = 50;
+    const cardW = doc.page.width - 100;
+    const itemH = 40;
 
     years.forEach((year) => {
-      if (doc.y > doc.page.height - 100) doc.addPage();
-      doc.font('KR-Bold').fontSize(13).fillColor('#2563eb').text(`${year}년`);
-      doc.moveDown(0.3);
+      if (doc.y + 50 > doc.page.height - 50) {
+        doc.addPage();
+        this.fillPageBg(doc);
+      }
+
+      this.drawYearPill(doc, year, cardX, doc.y);
+      doc.y += 34;
 
       grouped.get(year)!.forEach((post) => {
-        if (doc.y > doc.page.height - 60) doc.addPage();
-        const dateLabel = post.workMonth ? `${post.workMonth}월` : '';
-        doc.font('KR').fontSize(10).fillColor('#334155')
-          .text(`· ${post.title}  [${post.category}]  ${dateLabel}`, { width: doc.page.width - 100 });
+        if (doc.y + itemH > doc.page.height - 50) {
+          doc.addPage();
+          this.fillPageBg(doc);
+        }
+
+        const itemY = doc.y;
+        this.drawCardBg(doc, cardX, itemY, cardW, itemH);
+
+        doc.font('KR-Bold').fontSize(9.5).fillColor(COLOR.ink)
+          .text(post.title, cardX + 18, itemY + 9, { width: cardW - 180 });
+        doc.font('KR').fontSize(8).fillColor(COLOR.sub)
+          .text(`발주/시공사: ${post.clientName || '미지정'}`, cardX + 18, itemY + 24, { width: cardW - 180 });
+
+        this.drawBadge(doc, 'SUCCESS', cardX + cardW - 90, itemY + 12, {
+          bg: '#f8fafc',
+          color: COLOR.faint,
+        });
+
+        doc.y = itemY + itemH + 8;
       });
-      doc.moveDown(0.8);
+
+      doc.y += 12;
     });
   }
 }
