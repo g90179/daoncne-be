@@ -91,15 +91,15 @@ export class BrochureService {
     this.fillPageBg(doc);
     this.renderCompanyInfo(doc, company);
 
-    // 3. 장비보유현황 (페이지당 최대 20개 제한)
-    this.renderEquipmentPages(doc, equipmentPosts);
+    // 3. 장비보유현황 (4열 그리드 스타일, 페이지당 최대 16개 제한)
+    this.renderEquipmentGridPages(doc, equipmentPosts);
 
-    // 4. 최근 프로젝트 (공사실적 상위 6개, 정확히 1페이지)
+    // 4. 최근 프로젝트 (공사실적 상위 6개, 이미지 잘림 방지 적용)
     doc.addPage();
     this.fillPageBg(doc);
     this.renderFeaturedPortfolio(doc, featured);
 
-    // 5. 연도별 시공 실적 (공사실적 데이터 전체 반영, 타임라인 스타일 및 연도 단위 자동 페이지 분할)
+    // 5. 연도별 시공 실적 (타임라인 스타일 전체 반영)
     if (constructionPosts.length > 0) {
       this.renderTimelinePortfolioPages(doc, constructionPosts);
     }
@@ -130,8 +130,8 @@ export class BrochureService {
     const color = opts?.color || COLOR.badgeText;
     const fontSize = opts?.fontSize || 8;
     doc.font('KR-Bold').fontSize(fontSize);
-    const w = doc.widthOfString(text) + 12;
-    const h = fontSize + 6;
+    const w = doc.widthOfString(text) + 10;
+    const h = fontSize + 5;
     doc.roundedRect(x, y, w, h, h / 2).fill(bg);
     doc.fillColor(color).text(text, x, y + h / 2 - fontSize / 2 - 1, { width: w, align: 'center' });
     return w;
@@ -196,8 +196,9 @@ export class BrochureService {
     doc.y = cardY + cardH + 24;
   }
 
-  private renderEquipmentPages(doc: PDFKit.PDFDocument, posts: any[]) {
-    const ITEMS_PER_PAGE = 20;
+  // ✨ [신규] 장비보유현황: 4열 그리드 카탈로그 스타일 (페이지당 최대 16개, 이미지 잘림 방지)
+  private renderEquipmentGridPages(doc: PDFKit.PDFDocument, posts: any[]) {
+    const ITEMS_PER_PAGE = 16; // 페이지당 최대 16개
 
     if (posts.length === 0) {
       doc.addPage();
@@ -215,67 +216,89 @@ export class BrochureService {
       this.fillPageBg(doc);
       this.drawSectionHeader(doc, '장비보유현황');
 
-      const cardX = 50;
-      const cardW = doc.page.width - 100;
-      const availableHeight = doc.page.height - 50 - doc.y;
-      const rowH = Math.min(availableHeight / pagePosts.length, 32);
-      const fontSize = 8;
-      const thumbSize = Math.min(rowH - 8, 24);
+      const pageLeft = 50;
+      const pageRight = doc.page.width - 50;
+      const usableWidth = pageRight - pageLeft; // 495
+      
+      const cols = 4;
+      const rows = 4;
+      const gap = 10;
+      
+      const cardW = (usableWidth - gap * (cols - 1)) / cols; // 약 116.25
+      const startY = doc.y;
+      const usableHeight = doc.page.height - 50 - startY;
+      const cardH = (usableHeight - gap * (rows - 1)) / rows; // 약 155
 
-      let rowY = doc.y;
-      pagePosts.forEach((post) => {
-        this.drawCardBg(doc, cardX, rowY, cardW, rowH - 3);
+      pagePosts.forEach((post, index) => {
+        const c = index % cols;
+        const r = Math.floor(index / cols);
 
-        const thumbX = cardX + 8;
-        const thumbY = rowY + (rowH - 3 - thumbSize) / 2;
+        const x = pageLeft + c * (cardW + gap);
+        const y = startY + r * (cardH + gap);
+
+        // 카드 배경 박스
+        this.drawCardBg(doc, x, y, cardW, cardH);
+
+        // 1. 장비 이미지 영역 (잘림 방지 fit 적용)
+        const imgBoxX = x + 8;
+        const imgBoxY = y + 8;
+        const imgBoxW = cardW - 16;
+        const imgBoxH = cardH * 0.48; // 카드의 약 48% 높이 할당
+
         const imageFile = post.files?.find((f: any) => f.type === 'image');
         if (imageFile) {
           try {
             const imgPath = path.join(process.cwd(), 'uploads', path.basename(imageFile.url));
             if (fs.existsSync(imgPath)) {
               doc.save();
-              doc.roundedRect(thumbX, thumbY, thumbSize, thumbSize, 4).clip();
-              doc.image(imgPath, thumbX, thumbY, { width: thumbSize, height: thumbSize, fit: [thumbSize, thumbSize] });
+              doc.roundedRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 4).clip();
+              // 이미지가 왜곡되거나 잘리지 않도록 fit과 양쪽 정렬 옵션 사용
+              doc.image(imgPath, imgBoxX, imgBoxY, { 
+                width: imgBoxW, 
+                height: imgBoxH, 
+                fit: [imgBoxW, imgBoxH], 
+                align: 'center', 
+                valign: 'center' 
+              });
               doc.restore();
             } else {
-              doc.roundedRect(thumbX, thumbY, thumbSize, thumbSize, 4).fill('#f1f5f9');
+              doc.roundedRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 4).fill('#f1f5f9');
             }
           } catch (e) {
-            doc.roundedRect(thumbX, thumbY, thumbSize, thumbSize, 4).fill('#f1f5f9');
+            doc.roundedRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 4).fill('#f1f5f9');
           }
         } else {
-          doc.roundedRect(thumbX, thumbY, thumbSize, thumbSize, 4).fill('#f1f5f9');
+          doc.roundedRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 4).fill('#f1f5f9');
         }
 
-        const textX = thumbX + thumbSize + 10;
-        
-        doc.font('KR-Bold').fontSize(fontSize + 0.5).fillColor(COLOR.ink)
-          .text(post.title, textX, rowY + 6, { width: 160, lineBreak: false, ellipsis: true });
+        // 2. 텍스트 및 상세 메타 정보 영역
+        const textY = imgBoxY + imgBoxH + 6;
+        const textW = cardW - 12;
 
-        doc.font('KR').fontSize(fontSize - 0.5).fillColor(COLOR.sub)
-          .text(`규격: ${post.specifications || '-'}`, textX, rowY + 16, { width: 160, lineBreak: false, ellipsis: true });
+        // 장비명 (Title)
+        doc.font('KR-Bold').fontSize(8.5).fillColor(COLOR.ink)
+          .text(post.title, x + 6, textY, { width: textW, lineBreak: false, ellipsis: true });
 
-        const qtyX = cardX + 285;
-        doc.font('KR').fontSize(fontSize).fillColor(COLOR.ink)
-          .text(`보유량: ${post.quantity || '-'}`, qtyX, rowY + 10, { width: 75, align: 'center', lineBreak: false });
+        // 규격 정보 (Specifications)
+        doc.font('KR').fontSize(7).fillColor(COLOR.sub)
+          .text(`규격: ${post.specifications || '-'}`, x + 6, textY + 11, { width: textW, lineBreak: false, ellipsis: true });
 
-        const yearX = qtyX + 75;
-        doc.font('KR').fontSize(fontSize).fillColor(COLOR.sub)
-          .text(`제조: ${post.mappingYear || '-'}`, yearX, rowY + 10, { width: 75, align: 'center', lineBreak: false });
+        // 보유량 및 제조년도
+        doc.font('KR').fontSize(6.5).fillColor(COLOR.faint)
+          .text(`보유: ${post.quantity || '-'}  |  제조: ${post.mappingYear || '-'}`, x + 6, textY + 22, { width: textW, lineBreak: false, ellipsis: true });
 
+        // 관리 등급 뱃지
         const grade = post.managementGrade || '양호';
-        const gradeX = yearX + 75;
-        this.drawBadge(doc, grade, gradeX, rowY + (rowH - 3 - 16) / 2, { 
+        this.drawBadge(doc, grade, x + 6, y + cardH - 18, { 
           bg: grade.includes('최상') ? COLOR.pillBg : '#f1f5f9', 
           color: grade.includes('최상') ? COLOR.pillText : COLOR.sub, 
-          fontSize: 7.5 
+          fontSize: 6.5 
         });
-
-        rowY += rowH;
       });
     }
   }
 
+  // ✨ 최근 프로젝트 (이미지 잘림 방지 fit 처리 적용)
   private renderFeaturedPortfolio(doc: PDFKit.PDFDocument, posts: any[]) {
     this.drawSectionHeader(doc, '최근 프로젝트');
 
@@ -302,13 +325,21 @@ export class BrochureService {
       const thumbX = cardX + 16;
       const thumbY = cardY + (cardH - thumbSize) / 2;
       const imageFile = post.files?.find((f: any) => f.type === 'image');
+      
       if (imageFile) {
         try {
           const imgPath = path.join(process.cwd(), 'uploads', path.basename(imageFile.url));
           if (fs.existsSync(imgPath)) {
             doc.save();
             doc.roundedRect(thumbX, thumbY, thumbSize, thumbSize, 8).clip();
-            doc.image(imgPath, thumbX, thumbY, { width: thumbSize, height: thumbSize, fit: [thumbSize, thumbSize] });
+            // 이미지 잘림 방지를 위한 fit 및 중앙 정렬 옵션 추가
+            doc.image(imgPath, thumbX, thumbY, { 
+              width: thumbSize, 
+              height: thumbSize, 
+              fit: [thumbSize, thumbSize], 
+              align: 'center', 
+              valign: 'center' 
+            });
             doc.restore();
           } else {
             doc.roundedRect(thumbX, thumbY, thumbSize, thumbSize, 8).fill('#f1f5f9');
