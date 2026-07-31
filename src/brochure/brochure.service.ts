@@ -100,7 +100,7 @@ export class BrochureService {
     this.fillPageBg(doc);
     this.renderFeaturedPortfolio(doc, featured);
 
-    // 5. 연도별 시공 실적 (첨부 이미지 타일 스타일, 연도 단위 페이지 분할 적용)
+    // 5. 연도별 시공 실적 (타일 타임라인 스타일, 연도 단위 페이지 자동 분할)
     if (rest.length > 0) {
       this.renderTimelinePortfolioPages(doc, rest);
     }
@@ -136,6 +136,12 @@ export class BrochureService {
     doc.roundedRect(x, y, w, h, h / 2).fill(bg);
     doc.fillColor(color).text(text, x, y + h / 2 - fontSize / 2 - 1, { width: w, align: 'center' });
     return w;
+  }
+
+  private drawRemainderNote(doc: PDFKit.PDFDocument, x: number, y: number, width: number, remainder: number, fontSize = 9) {
+    if (remainder <= 0) return;
+    doc.font('KR').fontSize(fontSize).fillColor(COLOR.faint)
+      .text(`외 ${remainder}건은 지면 관계상 생략되었습니다.`, x, y, { width, align: 'center' });
   }
 
   // ── 페이지별 렌더링 ──────────────────────────────
@@ -343,9 +349,7 @@ export class BrochureService {
     this.drawRemainderNote(doc, cardX, cardY - gap + 6, cardW, remainder);
   }
 
-  // ✨ [신규] 첨부 이미지 스타일의 2단 타임라인 연도별 실적 렌더링 (연도 단위 페이지 자동 분할)
   private renderTimelinePortfolioPages(doc: PDFKit.PDFDocument, posts: any[]) {
-    // 1. 연도별 그룹화 및 내림차순 정렬
     const grouped = new Map<string, any[]>();
     posts.forEach((post) => {
       const year = post.workYear ? String(post.workYear) : String(new Date(post.createdAt).getFullYear());
@@ -364,7 +368,7 @@ export class BrochureService {
       const pageLeft = 50;
       const pageRight = doc.page.width - 50;
       const usableWidth = pageRight - pageLeft;
-      const colWidth = (usableWidth - 30) / 2; // 2단 레이아웃 (좌우 폭 및 간격)
+      const colWidth = (usableWidth - 30) / 2;
       
       let cursorY = doc.y;
       const maxY = doc.page.height - 50;
@@ -373,51 +377,41 @@ export class BrochureService {
         const year = years[currentYearIdx];
         const items = grouped.get(year)!;
 
-        // 연도 헤더 및 타임라인 요소들의 예상 높이 계산
         const headerHeight = 28;
-        // 항목당 대략 2줄 높이 (제목 + 발주처)
         const estimatedItemH = 36; 
         const totalItemsHeight = Math.ceil(items.length / 2) * estimatedItemH + headerHeight;
 
-        // 남은 공간을 초과하면 다음 페이지로 넘김 (연도 단위 분할)
         if (cursorY !== doc.y && cursorY + totalItemsHeight > maxY) {
           break;
         }
 
-        // --- 연도 헤더 그리기 (예: 2021) ---
         doc.font('KR-Bold').fontSize(16).fillColor(COLOR.ink).text(year, pageLeft, cursorY);
         
-        // 세로 타임라인 가이드 선 (연도 헤더 우측에 수직선 배치)
         const lineX = pageLeft + 48;
         const timelineTopY = cursorY + 4;
         
         cursorY += headerHeight;
 
-        // --- 2단 그리드로 해당 연도의 실적 아이템들 배치 ---
         let maxRowBottomY = cursorY;
 
         for (let i = 0; i < items.length; i++) {
-          const col = i % 2; // 0: 왼쪽 열, 1: 오른쪽 열
+          const col = i % 2;
           const row = Math.floor(i / 2);
           
           const colX = pageLeft + (col === 0 ? 70 : colWidth + 30);
-          // 짝수 번째 아이템 시작할 때 Y 좌표 계산
           const itemY = cursorY + (row * estimatedItemH);
 
           if (itemY + estimatedItemH > maxY) {
-            // 공간이 부족하면 이번 연도 출력 중단 후 다음 페이지 처리
             break;
           }
 
           const post = items[i];
           const clientText = `발주/시공사: ${post.clientName || '미지정'}`;
 
-          // 타임라인 도트 (파란색 원 포인트)
           if (col === 0) {
             doc.circle(lineX, itemY + 6, 3.5).fill(COLOR.accent);
           }
 
-          // 텍스트 출력
           doc.font('KR-Bold').fontSize(9).fillColor(COLOR.ink)
             .text(post.title, colX, itemY, { width: colWidth - 20, lineBreak: true });
           
@@ -427,7 +421,6 @@ export class BrochureService {
           maxRowBottomY = Math.max(maxRowBottomY, doc.y + 8);
         }
 
-        // 해당 연도의 전체 콘텐츠가 차지한 만큼 수직 타임라인 실선 연결
         doc.moveTo(lineX, timelineTopY)
           .lineTo(lineX, maxRowBottomY - 4)
           .strokeColor('#cbd5e1')
@@ -435,7 +428,7 @@ export class BrochureService {
           .stroke();
 
         cursorY = maxRowBottomY + 14;
-        currentYearIdx++; // 이 연도 완료 처리
+        currentYearIdx++;
       }
     }
   }
