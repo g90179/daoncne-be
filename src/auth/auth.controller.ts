@@ -12,14 +12,9 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: { email: string; pass?: string; password?: string }) {
-    // 값이 없을 경우를 대비해 마지막에 빈 문자열('')을 넣거나 as string으로 캐스팅합니다.
+    // 값이 없을 경우를 대비해 마지막에 as string으로 캐스팅합니다.
     const passwordToUse = (body.password || body.pass) as string;
     return this.authService.login(body.email, passwordToUse);
-  }
-
-  async login(@Body() body: { email: string; pass: string }) {
-    // 프론트엔드 input 변수명(password)과 서비스 매개변수명(pass) 매핑 조율
-    return this.authService.login(body.email, (body as any).password || body.pass);
   }
 
   // 🔄 2. 토큰 리프레시 컨트롤러 (유지)
