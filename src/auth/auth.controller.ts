@@ -1,7 +1,7 @@
 // daon-backend/src/auth/auth.controller.ts
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Public } from '../auth/decorators/public.decorator'; // ✨ import 추가
+import { Public } from './decorators/public.decorator'; // ✨ import 추가
 
 @Public()
 @Controller('auth')
@@ -11,9 +11,10 @@ export class AuthController {
   // 🔐 1. 로그인 컨트롤러 (유지)
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() body: { email: string; pass: string }) {
-    // 프론트엔드 input 변수명(password)과 서비스 매개변수명(pass) 매핑 조율
-    return this.authService.login(body.email, (body as any).password || body.pass);
+  async login(@Body() body: { email: string; pass?: string; password?: string }) {
+    // any 캐스팅 없이 안전하게 접근 가능
+    const passwordToUse = body.password || body.pass;
+    return this.authService.login(body.email, passwordToUse);
   }
 
   // 🔄 2. 토큰 리프레시 컨트롤러 (유지)

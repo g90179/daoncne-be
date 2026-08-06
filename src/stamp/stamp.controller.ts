@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { StampService, StampPlacement } from './stamp.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Public } from '../auth/decorators/public.decorator'; // ✨ auth 쪽에서 임포트
 
 @Controller('stamp')
 // @UseGuards(JwtAuthGuard) // 👑 도장 관련 기능은 전부 관리자 로그인 필요
@@ -24,6 +25,7 @@ export class StampController {
   constructor(private readonly stampService: StampService) {}
 
   // ✨ 프론트 미리보기에서 도장 이미지를 보여주기 위한 엔드포인트
+  @Public() // ✨ 여기에 달아주세요! (토큰 검사 패스)
   @Get('seal-image')
   async getSealImage(@Res() res: Response) {
     const filePath = path.join(process.cwd(), 'assets', 'stamp', 'stamp.png');
