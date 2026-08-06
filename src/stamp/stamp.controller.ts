@@ -19,7 +19,7 @@ import { StampService, StampPlacement } from './stamp.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('stamp')
-@UseGuards(JwtAuthGuard) // 👑 도장 관련 기능은 전부 관리자 로그인 필요
+// @UseGuards(JwtAuthGuard) // 👑 도장 관련 기능은 전부 관리자 로그인 필요
 export class StampController {
   constructor(private readonly stampService: StampService) {}
 
@@ -35,6 +35,7 @@ export class StampController {
 
   // ✨ 계약서 PDF + 도장 위치 정보를 받아 합성된 PDF를 반환
   @Post('apply')
+  @UseGuards(JwtAuthGuard) // 👑 보안이 필요한(실제 PDF를 합성하는) 기능에만 개별적으로 가드를 적용합니다.
   @UseInterceptors(FileInterceptor('contract', { storage: memoryStorage() }))
   async apply(
     @UploadedFile() contract: Express.Multer.File,
