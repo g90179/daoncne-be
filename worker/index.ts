@@ -66,7 +66,7 @@ export class DaonBackendContainer extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env) {
-    const instance = env.DAON_BACKEND.getByName('daon-backend');
+    const instance = env.DAON_BACKEND.getByName('daon-backend-v2');
     return instance.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
