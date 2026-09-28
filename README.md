@@ -96,3 +96,20 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Cloudflare Containers 배포
+
+이 백엔드는 Cloudflare Containers 로 배포된다(Gabia PM2 상시구동에서 이전). GitHub `main`
+브랜치에 푸시하면 Workers Builds 가 원격에서 Docker 이미지를 빌드·배포한다(로컬 Docker
+불필요).
+
+- `Dockerfile` - 멀티스테이지 빌드(빌드 → Prisma 클라이언트 생성 → 프로덕션 런타임).
+- `wrangler.jsonc` - Containers 바인딩 설정(`name`은 Cloudflare 프로젝트명 `daoncne-be`와
+  반드시 일치해야 한다).
+- `worker/index.ts` - 모든 요청을 고정된 이름의 컨테이너 인스턴스로 포워딩하는 Worker
+  진입점.
+- `src/storage/` - 업로드 파일(R2Service, `GET /uploads/:key`)을 로컬 디스크 대신 R2에
+  저장한다. 필요한 환경변수: `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`.
+- 그 외 환경변수(`DATABASE_URL`, `JWT_SECRET`, `SMTP_*`, `FRONTEND_URL`,
+  `NTS_SERVICE_KEY`, `API_PUBLIC_URL`)는 Cloudflare 프로젝트 설정의 시크릿으로 등록한다.
