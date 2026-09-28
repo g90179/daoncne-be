@@ -21,6 +21,9 @@ RUN npm run build
 FROM node:20-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# Prisma 쿼리 엔진 바이너리가 런타임에 libssl 을 필요로 하는데 node:20-slim 에는 기본
+# 포함돼 있지 않다 - 없으면 앱이 부팅 직후(포트 오픈 전) 조용히 크래시한다.
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
