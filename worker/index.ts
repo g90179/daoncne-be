@@ -28,6 +28,9 @@ export class DaonBackendContainer extends Container<Env> {
   // 트래픽이 없어도 바로 재우지 않는다 - 매 요청마다 콜드스타트가 나면 SMTP/DB 커넥션을 다시
   // 맺어야 해서 느려진다. 필요하면 나중에 조정.
   sleepAfter = '10m';
+  // 기본값이 false라 켜지 않으면 MySQL(Gabia)/SMTP/R2 같은 외부 연결이 전부 막혀서, 앱이
+  // DB 연결을 기다리다 포트(8080)를 못 열고 타임아웃난다.
+  enableInternet = true;
 
   // Cloudflare 대시보드에 등록한 시크릿은 Worker의 env로만 들어오고 컨테이너 프로세스에는
   // 자동으로 전달되지 않는다 - 여기서 명시적으로 넘겨줘야 NestJS 앱이 DB/SMTP/R2에 접속할 수
