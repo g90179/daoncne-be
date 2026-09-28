@@ -11,6 +11,10 @@ RUN npm ci
 # ---- build: TS 컴파일 + Prisma 클라이언트 생성 ----
 FROM node:20-slim AS build
 WORKDIR /app
+# prisma generate 시점에 openssl 이 없으면 감지에 실패해 잘못된 엔진(openssl-1.1.x)을
+# 생성한다 - 나중에 runtime 스테이지에만 openssl 을 깔아도 이미 생성된 엔진 자체가 안 맞아
+# 소용없으므로 여기서도 설치해야 한다.
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
