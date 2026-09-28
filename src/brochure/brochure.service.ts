@@ -1,8 +1,8 @@
 // daon-backend/src/brochure/brochure.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { R2Service } from '../storage/r2.service';
 import PDFDocument = require('pdfkit');
-import * as fs from 'fs';
 import * as path from 'path';
 import type { Response } from 'express';
 
@@ -30,7 +30,10 @@ interface FitRowsResult {
 
 @Injectable()
 export class BrochureService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly r2: R2Service,
+  ) {}
 
   private stripHtml(html: string = ''): string {
     return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -71,6 +74,23 @@ export class BrochureService {
 
     const featured = constructionPosts.slice(0, FEATURED_COUNT);
 
+    // pdfkit 은 doc.image() 호출 시점에 버퍼가 이미 있어야 하는 동기 API라, R2에서 읽어오는
+    // 비동기 작업을 그리기 전에 전부 끝내 둔다(예전엔 이 자리에서 fs.existsSync로 동기 확인했다).
+    const imageKeys = new Set<string>();
+    for (const post of equipmentPosts) {
+      const f = post.files?.find((f) => f.type === 'image');
+      if (f) imageKeys.add(this.r2.keyFromUrlOrKey(f.url));
+    }
+    for (const post of featured) {
+      const f = post.files?.find((f) => f.type === 'image');
+      if (f) imageKeys.add(this.r2.keyFromUrlOrKey(f.url));
+    }
+    const imageBuffers = new Map<string, Buffer>();
+    await Promise.all([...imageKeys].map(async (key) => {
+      const buf = await this.r2.getBuffer(key);
+      if (buf) imageBuffers.set(key, buf);
+    }));
+
     const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -92,12 +112,12 @@ export class BrochureService {
     this.renderCompanyInfo(doc, company);
 
     // 3. 장비보유현황 (4열 그리드 스타일, 페이지당 최대 16개 제한)
-    this.renderEquipmentGridPages(doc, equipmentPosts);
+    this.renderEquipmentGridPages(doc, equipmentPosts, imageBuffers);
 
     // 4. 최근 프로젝트 (공사실적 상위 6개, 이미지 잘림 방지 적용)
     doc.addPage();
     this.fillPageBg(doc);
-    this.renderFeaturedPortfolio(doc, featured);
+    this.renderFeaturedPortfolio(doc, featured, imageBuffers);
 
     // 5. 연도별 시공 실적 (타임라인 스타일 전체 반영)
     if (constructionPosts.length > 0) {
@@ -197,7 +217,7 @@ export class BrochureService {
   }
 
   // ✨ [신규] 장비보유현황: 4열 그리드 카탈로그 스타일 (페이지당 최대 16개, 이미지 잘림 방지)
-  private renderEquipmentGridPages(doc: PDFKit.PDFDocument, posts: any[]) {
+  private renderEquipmentGridPages(doc: PDFKit.PDFDocument, posts: any[], imageBuffers: Map<string, Buffer>) {
     const ITEMS_PER_PAGE = 16; // 페이지당 최대 16개
 
     if (posts.length === 0) {
@@ -248,17 +268,17 @@ export class BrochureService {
         const imageFile = post.files?.find((f: any) => f.type === 'image');
         if (imageFile) {
           try {
-            const imgPath = path.join(process.cwd(), 'uploads', path.basename(imageFile.url));
-            if (fs.existsSync(imgPath)) {
+            const imgBuf = imageBuffers.get(this.r2.keyFromUrlOrKey(imageFile.url));
+            if (imgBuf) {
               doc.save();
               doc.roundedRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 4).clip();
               // 이미지가 왜곡되거나 잘리지 않도록 fit과 양쪽 정렬 옵션 사용
-              doc.image(imgPath, imgBoxX, imgBoxY, { 
-                width: imgBoxW, 
-                height: imgBoxH, 
-                fit: [imgBoxW, imgBoxH], 
-                align: 'center', 
-                valign: 'center' 
+              doc.image(imgBuf, imgBoxX, imgBoxY, {
+                width: imgBoxW,
+                height: imgBoxH,
+                fit: [imgBoxW, imgBoxH],
+                align: 'center',
+                valign: 'center'
               });
               doc.restore();
             } else {
@@ -299,7 +319,7 @@ export class BrochureService {
   }
 
   // ✨ 최근 프로젝트 (이미지 잘림 방지 fit 처리 적용)
-  private renderFeaturedPortfolio(doc: PDFKit.PDFDocument, posts: any[]) {
+  private renderFeaturedPortfolio(doc: PDFKit.PDFDocument, posts: any[], imageBuffers: Map<string, Buffer>) {
     this.drawSectionHeader(doc, '최근 프로젝트');
 
     const cardX = 50;
@@ -328,16 +348,16 @@ export class BrochureService {
       
       if (imageFile) {
         try {
-          const imgPath = path.join(process.cwd(), 'uploads', path.basename(imageFile.url));
-          if (fs.existsSync(imgPath)) {
+          const imgBuf = imageBuffers.get(this.r2.keyFromUrlOrKey(imageFile.url));
+          if (imgBuf) {
             doc.save();
             doc.roundedRect(thumbX, thumbY, thumbSize, thumbSize, 8).clip();
             // 이미지 잘림 방지를 위한 fit 및 중앙 정렬 옵션 추가
-            doc.image(imgPath, thumbX, thumbY, { 
-              width: thumbSize, 
-              height: thumbSize, 
-              fit: [thumbSize, thumbSize], 
-              align: 'center', 
+            doc.image(imgBuf, thumbX, thumbY, {
+              width: thumbSize,
+              height: thumbSize,
+              fit: [thumbSize, thumbSize],
+              align: 'center',
               valign: 'center' 
             });
             doc.restore();

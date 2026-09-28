@@ -18,6 +18,7 @@ import { MapPositionsModule } from './map-positions/map-positions.module'; // �
 import { VisitorModule } from './visitor/visitor.module'; // 방문자 통계
 import { BrochureModule } from './brochure/brochure.module'; // 회사소개 PDF 다운로드
 import { StampModule } from './stamp/stamp.module'; // 회사소개 PDF 다운로드
+import { StorageModule } from './storage/storage.module'; // 업로드 파일 저장(R2)
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { StampModule } from './stamp/stamp.module'; // 회사소개 PDF 다운�
     MapPositionsModule,
     VisitorModule,
     BrochureModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [

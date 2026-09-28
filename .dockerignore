@@ -1,0 +1,11 @@
+node_modules
+dist
+uploads
+*.log
+nohup.out
+backend.out
+.env
+.env.*
+.git
+test
+coverage

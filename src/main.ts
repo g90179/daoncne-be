@@ -3,7 +3,6 @@ import 'dotenv/config'; // 💡 반드시 최상단에 위치해야 합니다!
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express'; // 1. 이게 잘 서있는지 확인!
-import { join } from 'path';
 
 async function bootstrap() {
   // 2. 반드시 create 뒤에 <NestExpressApplication>이 붙어있어야 합니다!
@@ -24,10 +23,10 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
 
-  // /uploads 경로로 들어오는 요청을 uploads 폴더와 연결
-  // 빌드 후(dist/) 기준으로 한 칸 위(..)인 /web/uploads 폴더를 바라보게 됩니다.
-  // 이제 타입스크립트가 에러를 뱉지 않고 프리패스로 통과시킵니다!
-  app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), { prefix: '/uploads/' });
+  // 업로드 파일은 이제 로컬 uploads/ 폴더가 아니라 R2 에 저장되고, File.url 이 R2 공개 URL을
+  // 그대로 담고 있으므로(FilesModule 참고) 여기서 정적 서빙할 필요가 없다(Containers 는 재배포
+  // 때마다 이미지가 새로 뜨는 상시 컨테이너라, 로컬 디스크에 의존하면 재배포 시 업로드 파일이
+  // 사라진다).
 
   await app.listen(8080);
 }

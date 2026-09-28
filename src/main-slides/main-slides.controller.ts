@@ -1,9 +1,8 @@
 //daon-backend\src\main-slides\main-slides.controller.ts
 import { Controller, Get, Post, Body, Param, Put, Delete, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import * as fs from 'fs';
+import { memoryStorage } from 'multer';
+import { R2Service } from '../storage/r2.service';
 import { MainSlidesService } from './main-slides.service';
 import { CreateMainSlideDto } from './dto/create-main-slide.dto';
 import { UpdateMainSlideDto } from './dto/update-main-slide.dto';
@@ -11,22 +10,16 @@ import { Public } from '../auth/decorators/public.decorator'; // ✨ import 추�
 
 @Controller('main-slides')
 export class MainSlidesController {
-  constructor(private readonly mainSlidesService: MainSlidesService) {}
+  constructor(
+    private readonly mainSlidesService: MainSlidesService,
+    private readonly r2: R2Service,
+  ) {}
 
   // 🎬 [신규 추가] 대용량 비디오 업로드 엔진 (최대 200MB 허용 설정)
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('video', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/slides';
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `slide-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 200 * 1024 * 1024 }, // 🛡️ 200MB까지 파일 제한 확장
       fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/\/(mp4|webm|ogg|quicktime)$/)) {
@@ -36,12 +29,14 @@ export class MainSlidesController {
       },
     }),
   )
-  uploadVideo(@UploadedFile() file: Express.Multer.File) {
+  async uploadVideo(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('파일이 정상적으로 업로드되지 않았습니다.');
     }
-    // 프론트엔드에서 고유 스태틱 자원으로 접근할 수 있는 정적 릴레이션 경로 반환
-    return { videoUrl: `/uploads/slides/${file.filename}` };
+    const { key } = await this.r2.upload(file.buffer, file.originalname, file.mimetype);
+    // UploadsController(GET /uploads/:key)가 R2에서 그대로 스트리밍해 준다 - 예전엔 로컬
+    // uploads/slides/ 하위 경로였지만, R2 키 자체가 이미 고유하므로 폴더 구분이 필요 없다.
+    return { videoUrl: `/uploads/${key}` };
   }
 
   @Post()

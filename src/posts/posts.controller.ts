@@ -17,18 +17,22 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '../prisma/prisma.service';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
+import { memoryStorage } from 'multer';
+import { R2Service } from '../storage/r2.service';
 import { Public } from '../auth/decorators/public.decorator';
 import type { Response } from 'express';
 
-const API_URL = 'https://g90179.gabia.io';
+// 에디터가 본문 HTML에 직접 박아 넣는 <img> 경로라 프론트 origin 기준 상대경로로 두면 안 되고,
+// 백엔드 자신의 공개 주소를 절대경로로 써야 한다(예전엔 gabia 주소가 하드코딩돼 있었다).
+const API_PUBLIC_URL = (process.env.API_PUBLIC_URL || 'https://g90179.gabia.io').replace(/\/+$/, '');
 
 @Controller('posts')
 export class PostsController {
   private readonly logger = new Logger(PostsController.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly r2: R2Service,
+  ) {}
 
   private fixFileNameEncoding(originalname: string): string {
     try {
@@ -89,30 +93,15 @@ export class PostsController {
   }
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('upload', {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${path.extname(file.originalname)}`);
-      }
-    })
-  }))
-  async uploadEditorImage(@UploadedFile() file: any) {
-    return { url: `${API_URL}/uploads/${file.filename}` };
+  @UseInterceptors(FileInterceptor('upload', { storage: memoryStorage() }))
+  async uploadEditorImage(@UploadedFile() file: Express.Multer.File) {
+    const { key } = await this.r2.upload(file.buffer, file.originalname, file.mimetype);
+    return { url: `${API_PUBLIC_URL}/uploads/${key}` };
   }
 
   // 1. 게시글 생성 로직 수정
   @Post()
-  @UseInterceptors(FilesInterceptor('files', 10, {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${path.extname(file.originalname)}`);
-      }
-    })
-  }))
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     this.logger.log(`[게시물 생성] 요청 접수: ${body.title} (카테고리: ${body.category})`);
     try {
@@ -126,11 +115,14 @@ export class PostsController {
         thumbnailUrl
       } = body;
 
-      const dbFiles = files?.map(f => ({
-        url: `/uploads/${f.filename}`,
-        name: this.fixFileNameEncoding(f.originalname),
-        type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file')
-      })) || [];
+      const dbFiles = await Promise.all((files ?? []).map(async (f) => {
+        const { key } = await this.r2.upload(f.buffer, f.originalname, f.mimetype);
+        return {
+          url: `/uploads/${key}`,
+          name: this.fixFileNameEncoding(f.originalname),
+          type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file'),
+        };
+      }));
 
       const thumbnail = this.resolveThumbnail(thumbnailUrl, content);
       if (thumbnail) {
@@ -187,13 +179,12 @@ export class PostsController {
     const file = await this.prisma.file.findUnique({ where: { id: Number(fileId) } });
     if (!file) throw new NotFoundException('DB에 파일 정보가 없습니다.');
 
-    const filePath = path.join(process.cwd(), 'uploads', path.basename(file.url));
+    const stored = await this.r2.get(this.r2.keyFromUrlOrKey(file.url));
+    if (!stored) throw new NotFoundException('서버 스토리지에 실제 파일이 존재하지 않습니다.');
 
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('서버 스토리지에 실제 파일이 존재하지 않습니다.');
-    }
-
-    res.download(filePath, file.name);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
+    if (stored.contentType) res.setHeader('Content-Type', stored.contentType);
+    res.send(stored.buffer);
   }
 
   // ⚠️ 와일드카드격인 ':id'는 특수 라우터(files/...)보다 아래에 있어야 함
@@ -213,15 +204,7 @@ export class PostsController {
 
   // 2. 게시글 수정 로직 수정
   @Patch(':id')
-  @UseInterceptors(FilesInterceptor('files', 10, {
-    storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-          cb(null, `${randomName}${path.extname(file.originalname)}`);
-        }
-    })
-  }))
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async update(@Param('id') id: string, @Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     // 🔑 수정 요청 body에서도 새 필드들을 추출합니다.
     const {
@@ -263,19 +246,20 @@ export class PostsController {
       }
     }
 
-    const dbFiles = files?.map(f => {
+    const dbFiles = await Promise.all((files ?? []).map(async (f) => {
       let type = 'file';
       if (f.mimetype.includes('image')) {
         type = 'image';
-      } else if (f.mimetype.includes('video') || f.filename.endsWith('.mp4')) {
+      } else if (f.mimetype.includes('video') || f.originalname.endsWith('.mp4')) {
         type = 'video';
       }
+      const { key } = await this.r2.upload(f.buffer, f.originalname, f.mimetype);
       return {
-        url: `/uploads/${f.filename}`,
+        url: `/uploads/${key}`,
         name: this.fixFileNameEncoding(f.originalname),
-        type: type
+        type: type,
       };
-    }) || [];
+    }));
 
     // ✨ 썸네일 결정: thumbnailUrl 우선, 없으면 본문에서 추출 (중복 없이 한 번만)
     const thumbnail = this.resolveThumbnail(thumbnailUrl, content);
@@ -321,19 +305,12 @@ export class PostsController {
       return { success: false, message: 'Post not found' };
     }
 
-    postWithFiles.files.forEach(file => {
-      if (file.url.startsWith('/uploads/')) {
-        const filePath = path.join(process.cwd(), 'uploads', path.basename(file.url));
-
-        if (fs.existsSync(filePath)) {
-          try {
-            fs.unlinkSync(filePath);
-          } catch (err) {
-            console.error(`Failed to delete server file: ${filePath}`, err);
-          }
-        }
-      }
-    });
+    await Promise.all(postWithFiles.files.map((file) => {
+      if (!file.url.startsWith('/uploads/')) return Promise.resolve();
+      return this.r2.delete(this.r2.keyFromUrlOrKey(file.url)).catch((err) => {
+        console.error(`Failed to delete R2 file: ${file.url}`, err);
+      });
+    }));
 
     return this.prisma.$transaction(async (tx) => {
       await tx.file.deleteMany({ where: { postId: postId } });
