@@ -19,7 +19,6 @@ import { VisitorModule } from './visitor/visitor.module'; // 방문자 통계
 import { BrochureModule } from './brochure/brochure.module'; // 회사소개 PDF 다운로드
 import { StampModule } from './stamp/stamp.module'; // 회사소개 PDF 다운로드
 import { StorageModule } from './storage/storage.module'; // 업로드 파일 저장(R2)
-import { DebugController } from './debug/debug.controller'; // (임시 디버그, 확인 후 제거)
 
 @Module({
   imports: [
@@ -39,7 +38,7 @@ import { DebugController } from './debug/debug.controller'; // (임시 디버그
     BrochureModule,
     StorageModule,
   ],
-  controllers: [AppController, DebugController],
+  controllers: [AppController],
   providers: [
     AppService,
     // 🔑 전역 가드(Global Guard) 설정

@@ -35,27 +35,38 @@ export class DaonBackendContainer extends Container<Env> {
   // Cloudflare 대시보드에 등록한 시크릿은 Worker의 env로만 들어오고 컨테이너 프로세스에는
   // 자동으로 전달되지 않는다 - 여기서 명시적으로 넘겨줘야 NestJS 앱이 DB/SMTP/R2에 접속할 수
   // 있다(이게 빠져서 컨테이너가 부팅 직후 크래시하고 있었다).
-  envVars = {
-    DATABASE_URL: this.env.DATABASE_URL,
-    JWT_SECRET: this.env.JWT_SECRET,
-    SMTP_HOST: this.env.SMTP_HOST,
-    SMTP_PORT: this.env.SMTP_PORT,
-    SMTP_USER: this.env.SMTP_USER,
-    SMTP_PASS: this.env.SMTP_PASS,
-    FRONTEND_URL: this.env.FRONTEND_URL,
-    NTS_SERVICE_KEY: this.env.NTS_SERVICE_KEY,
-    R2_BUCKET: this.env.R2_BUCKET,
-    R2_ENDPOINT: this.env.R2_ENDPOINT,
-    R2_ACCESS_KEY_ID: this.env.R2_ACCESS_KEY_ID,
-    R2_SECRET_ACCESS_KEY: this.env.R2_SECRET_ACCESS_KEY,
-    API_PUBLIC_URL: this.env.API_PUBLIC_URL,
-  };
+  // 값이 없는 시크릿을 그대로 넣으면 컨테이너 쪽에서 문자열 "undefined"로 새어들어가
+  // 코드의 자체 fallback 로직을 무력화한다(실제로 API_PUBLIC_URL 미등록 상태에서 발생했던
+  // 문제) - 등록된 값만 골라서 넘긴다. envVars는 베이스 클래스의 일반 프로퍼티라 접근자로
+  // 재정의할 수 없어 생성자에서 직접 계산해 대입한다.
+  envVars: Record<string, string>;
+
+  constructor(ctx: DurableObjectState<Record<string, never>>, env: Env) {
+    super(ctx, env);
+    const candidates: Record<string, string | undefined> = {
+      DATABASE_URL: env.DATABASE_URL,
+      JWT_SECRET: env.JWT_SECRET,
+      SMTP_HOST: env.SMTP_HOST,
+      SMTP_PORT: env.SMTP_PORT,
+      SMTP_USER: env.SMTP_USER,
+      SMTP_PASS: env.SMTP_PASS,
+      FRONTEND_URL: env.FRONTEND_URL,
+      NTS_SERVICE_KEY: env.NTS_SERVICE_KEY,
+      R2_BUCKET: env.R2_BUCKET,
+      R2_ENDPOINT: env.R2_ENDPOINT,
+      R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID,
+      R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY,
+      API_PUBLIC_URL: env.API_PUBLIC_URL,
+    };
+    this.envVars = Object.fromEntries(
+      Object.entries(candidates).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>;
+  }
 }
 
 export default {
   async fetch(request: Request, env: Env) {
-    // (임시 디버그) 기존 인스턴스가 최신 이미지로 안 갈아타져서 이름을 바꿔 강제로 새 인스턴스 생성
-    const instance = env.DAON_BACKEND.getByName('daon-backend-debug2');
+    const instance = env.DAON_BACKEND.getByName('daon-backend');
     return instance.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
