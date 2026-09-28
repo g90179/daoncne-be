@@ -113,3 +113,7 @@ Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
   `R2_SECRET_ACCESS_KEY`.
 - 그 외 환경변수(`DATABASE_URL`, `JWT_SECRET`, `SMTP_*`, `FRONTEND_URL`,
   `NTS_SERVICE_KEY`, `API_PUBLIC_URL`)는 Cloudflare 프로젝트 설정의 시크릿으로 등록한다.
+
+시크릿은 Cloudflare 대시보드의 daoncne-be 프로젝트 → Settings → Variables and Secrets
+에서 직접 등록한다(값이 커밋/로그에 노출되지 않도록 CLI 대신 대시보드 입력을 우선한다).
+값 변경 후에는 반영을 위해 재배포가 필요하다.
