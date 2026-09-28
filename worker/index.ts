@@ -54,9 +54,6 @@ export class DaonBackendContainer extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env) {
-    // (임시 디버그) DATABASE_URL이 실제로 Worker env에 들어오는지 확인
-    console.log('DEBUG env keys:', Object.keys(env));
-    console.log('DEBUG DATABASE_URL present:', !!env.DATABASE_URL, 'len:', env.DATABASE_URL?.length);
     const instance = env.DAON_BACKEND.getByName('daon-backend');
     return instance.fetch(request);
   },

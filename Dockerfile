@@ -40,4 +40,4 @@ EXPOSE 8080
 # 주의: package.json 의 start:prod 스크립트는 "node dist/main.js"라고 돼 있지만, 이 프로젝트의
 # tsconfig(outDir: ./dist, sourceRoot: src)가 실제로 만드는 산출물은 dist/src/main.js 이다
 # (nest build 로 직접 확인함) - 그 경로를 그대로 쓴다.
-CMD ["sh", "-c", "node dist/src/main.js > /tmp/app.log 2>&1; echo EXITCODE=$? >> /tmp/app.log; node -e \"require('http').createServer((req,res)=>{res.end(require('fs').readFileSync('/tmp/app.log'))}).listen(8080)\""]
+CMD ["node", "dist/src/main.js"]
