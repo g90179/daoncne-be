@@ -54,7 +54,8 @@ export class DaonBackendContainer extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env) {
-    const instance = env.DAON_BACKEND.getByName('daon-backend');
+    // (임시 디버그) 기존 인스턴스가 최신 이미지로 안 갈아타져서 이름을 바꿔 강제로 새 인스턴스 생성
+    const instance = env.DAON_BACKEND.getByName('daon-backend-debug1');
     return instance.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
