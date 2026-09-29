@@ -33,7 +33,12 @@ export class UploadsController {
     const key = this.r2.keyFromUrlOrKey(keyParam);
     const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/+$/, '');
     if (publicBase) {
-      res.redirect(302, `${publicBase}/${encodeURIComponent(key)}`);
+      // 파일 키는 매번 새로 만들어지는 무작위 값이라 같은 key로 다른 파일이 될 일이 없다 -
+      // 301 + 캐시 헤더로 브라우저가 리다이렉트 자체를 캐시하게 해서, 재방문 시 우리 백엔드를
+      // 거치는 왕복 없이 곧바로 R2로 가게 한다(첫 방문에서 우리 백엔드가 매번 파일을 직접
+      // 버퍼링해 보내던 것보다 훨씬 빠르다).
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.redirect(301, `${publicBase}/${encodeURIComponent(key)}`);
       return;
     }
     const file = await this.r2.get(key);
