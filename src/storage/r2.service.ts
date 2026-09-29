@@ -19,6 +19,10 @@ import sharp from 'sharp';
 const THUMBNAIL_PREFIX = 'thumb_';
 const THUMBNAIL_WIDTH = 480;
 const THUMBNAIL_QUALITY = 70;
+// 키가 항상 새 무작위 문자열이라 같은 키에 다른 내용이 들어올 일이 없다 - 파일 자체에
+// "1년 동안 캐싱해도 된다"는 메타데이터를 심어 둬서, 커스텀 도메인을 붙였을 때 Cloudflare
+// 엣지 캐시와 브라우저 캐시가 이 힌트를 그대로 활용하게 한다.
+const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 @Injectable()
 export class R2Service {
@@ -65,6 +69,7 @@ export class R2Service {
     const key = this.randomKey(originalName);
     await this.client.send(new PutObjectCommand({
       Bucket: this.bucket, Key: key, Body: buffer, ContentType: contentType,
+      CacheControl: IMMUTABLE_CACHE_CONTROL,
     }));
     return { key };
   }
@@ -77,11 +82,13 @@ export class R2Service {
     const thumbBuffer = await this.makeThumbnail(buffer, contentType);
     await this.client.send(new PutObjectCommand({
       Bucket: this.bucket, Key: key, Body: buffer, ContentType: contentType,
+      CacheControl: IMMUTABLE_CACHE_CONTROL,
     }));
     if (!thumbBuffer) return { key };
     const thumbnailKey = `${THUMBNAIL_PREFIX}${key}`;
     await this.client.send(new PutObjectCommand({
       Bucket: this.bucket, Key: thumbnailKey, Body: thumbBuffer, ContentType: contentType,
+      CacheControl: IMMUTABLE_CACHE_CONTROL,
     }));
     return { key, thumbnailKey };
   }
