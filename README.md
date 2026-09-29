@@ -110,10 +110,13 @@ Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
   진입점.
 - `src/storage/` - 업로드 파일(R2Service, `GET /uploads/:key`)을 로컬 디스크 대신 R2에
   저장한다. 필요한 환경변수: `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`.
+  `R2_SECRET_ACCESS_KEY`. `R2_PUBLIC_URL`(R2 버킷의 r2.dev 공개 주소, 또는 커스텀 도메인)이
+  등록돼 있으면 파일을 컨테이너가 직접 버퍼링하는 대신 그 주소로 302 리다이렉트한다 - 이미지/
+  동영상이 작은 컨테이너 인스턴스를 거치지 않고 R2/엣지에서 바로 내려가서 훨씬 빠르다.
 - 그 외 환경변수(`DATABASE_URL`, `JWT_SECRET`, `SMTP_*`, `FRONTEND_URL`,
   `NTS_SERVICE_KEY`, `API_PUBLIC_URL`)는 Cloudflare 프로젝트 설정의 시크릿으로 등록한다.
 
-시크릿은 Cloudflare 대시보드의 daoncne-be 프로젝트 → Settings → Variables and Secrets
-에서 직접 등록한다(값이 커밋/로그에 노출되지 않도록 CLI 대신 대시보드 입력을 우선한다).
-값 변경 후에는 반영을 위해 재배포가 필요하다.
+시크릿은 `wrangler secret put <이름>` 으로 등록한다 - 대시보드 UI의 "Variables and Secrets"에
+입력한 값은 Wrangler(Workers Builds git 연동)로 배포되는 이 프로젝트에는 반영되지 않는다
+(직접 겪은 문제, `wrangler secret put`만 실제로 컨테이너 env에 전달된다). 값 변경 후에는
+반영을 위해 재배포가 필요하다.

@@ -21,6 +21,7 @@ interface Env {
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
   API_PUBLIC_URL: string;
+  R2_PUBLIC_URL: string;
 }
 
 export class DaonBackendContainer extends Container<Env> {
@@ -57,6 +58,7 @@ export class DaonBackendContainer extends Container<Env> {
       R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID,
       R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY,
       API_PUBLIC_URL: env.API_PUBLIC_URL,
+      R2_PUBLIC_URL: env.R2_PUBLIC_URL,
     };
     this.envVars = Object.fromEntries(
       Object.entries(candidates).filter(([, v]) => v !== undefined),
@@ -66,6 +68,8 @@ export class DaonBackendContainer extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env) {
+    // 'daon-backend-v2' 가 최종 고정 이름 - 디버깅 중 여러 번 이름을 바꿔가며 인스턴스를
+    // 새로 띄웠던 이력이 있어서, 앞으로는 이 이름을 계속 유지한다(다시 바꾸지 말 것).
     const instance = env.DAON_BACKEND.getByName('daon-backend-v2');
     return instance.fetch(request);
   },
