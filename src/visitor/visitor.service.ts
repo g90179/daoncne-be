@@ -7,8 +7,15 @@ export class VisitorService {
   constructor(private prisma: PrismaService) {}
 
   async logVisitor(req: any, body: { path: string }) {
-    const rawIp = req.headers['x-forwarded-for'] || req.ip || req.connection?.remoteAddress;
-    const ip = Array.isArray(rawIp) ? rawIp[0] : rawIp?.replace(/^.*:/, '') || '127.0.0.1';
+    // Cloudflare Containers 뒤에서는 X-Forwarded-For 가 Cloudflare 내부 네트워크 주소
+    // (10.x.x.x)로 덮어써져서 실제 방문자 IP를 안 담고 있다 - Cloudflare가 항상 실제 클라이언트
+    // IP를 넣어주는 CF-Connecting-IP 헤더를 우선 쓴다(Gabia 시절 프록시 뒤에선 이 헤더가 없어서
+    // x-forwarded-for로 자연히 폴백된다).
+    const cfIp = req.headers['cf-connecting-ip'];
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const firstForwarded = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor?.split(',')[0]?.trim();
+    const rawIp = cfIp || firstForwarded || req.ip || req.connection?.remoteAddress;
+    const ip = (Array.isArray(rawIp) ? rawIp[0] : rawIp)?.replace(/^::ffff:/, '') || '127.0.0.1';
 
     const device = req.headers['user-agent'] || '알 수 없음';
     const referer = req.headers['referer'] || '';
