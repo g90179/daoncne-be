@@ -64,12 +64,13 @@ model Post {
 
 
 model File {
-  id        Int    @id @default(autoincrement())
-  url       String
-  name      String
-  type      String // 'image', 'document', 'archive'
-  postId    Int
-  post      Post   @relation(fields: [postId], references: [id])
+  id           Int     @id @default(autoincrement())
+  url          String
+  name         String
+  type         String  // 'image', 'document', 'archive'
+  thumbnailUrl String? // 목록/그리드용 작은 썸네일 - 이미지가 아니거나 예전에 올라간 파일은 null(원본 url로 폴백)
+  postId       Int
+  post         Post    @relation(fields: [postId], references: [id])
 }
 
 // ✨ [신규] 작업 키워드 마스터 테이블 (검색/카테고리 확장용)

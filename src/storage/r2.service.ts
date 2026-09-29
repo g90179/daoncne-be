@@ -12,11 +12,13 @@ import { Injectable } from '@nestjs/common';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 
-// 원본 사진을 그대로 올리면 4~8MB짜리 파일이 그대로 서비스에 박혀서 페이지 로딩이 느려진다 -
-// 화면에서 실제로 쓰는 것보다 큰 해상도는 의미가 없으므로, 업로드 시점에 한 번만 줄여둔다
-// (매 요청마다 다시 압축하는 게 아니라 저장할 때 딱 한 번).
-const MAX_IMAGE_WIDTH = 1920;
-const JPEG_QUALITY = 78;
+// 원본은 그대로 보존한다(다운로드/상세보기용) - 대신 목록/그리드에서만 쓰는 작은 썸네일을
+// 별도 파일로 하나 더 만들어 둔다. 그리드가 3~4MB 원본을 그대로 그리는 대신 이 작은 파일을
+// 쓰면 로딩이 훨씬 빨라진다. 썸네일 키는 항상 "thumb_<원본키>" 규칙을 쓴다 - DB에 명시적으로
+// 저장해 둘 수도 있지만, 이 규칙만 지키면 원본 키만 알아도 썸네일 위치를 바로 계산할 수 있다.
+const THUMBNAIL_PREFIX = 'thumb_';
+const THUMBNAIL_WIDTH = 480;
+const THUMBNAIL_QUALITY = 70;
 
 @Injectable()
 export class R2Service {
@@ -35,31 +37,60 @@ export class R2Service {
     });
   }
 
-  /** 사진이면 화면에 필요한 크기로 줄이고 압축한다 - 움직이는 GIF/SVG는 sharp로 다시
-   * 인코딩하면 애니메이션이 깨지거나 의미가 없어서 원본 그대로 둔다. */
-  private async optimizeIfImage(buffer: Buffer, contentType?: string): Promise<Buffer> {
+  private randomKey(originalName: string): string {
+    const ext = originalName.includes('.') ? originalName.slice(originalName.lastIndexOf('.')) : '';
+    return `${Array(32).fill(null).map(() => Math.round(Math.random() * 16).toString(16)).join('')}${ext}`;
+  }
+
+  /** 움직이는 GIF/SVG는 리사이즈해봐야 애니메이션이 깨지거나 의미가 없어 썸네일 대상에서
+   * 제외한다 - 그 외 래스터 이미지만 작은 썸네일을 만든다. */
+  private async makeThumbnail(buffer: Buffer, contentType?: string): Promise<Buffer | null> {
     if (!contentType?.startsWith('image/') || contentType === 'image/gif' || contentType === 'image/svg+xml') {
-      return buffer;
+      return null;
     }
     try {
-      const image = sharp(buffer).resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true });
-      if (contentType === 'image/png') return await image.png({ quality: JPEG_QUALITY, compressionLevel: 8 }).toBuffer();
-      if (contentType === 'image/webp') return await image.webp({ quality: JPEG_QUALITY }).toBuffer();
-      return await image.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
+      const image = sharp(buffer).resize({ width: THUMBNAIL_WIDTH, withoutEnlargement: true });
+      if (contentType === 'image/png') return await image.png({ quality: THUMBNAIL_QUALITY, compressionLevel: 8 }).toBuffer();
+      if (contentType === 'image/webp') return await image.webp({ quality: THUMBNAIL_QUALITY }).toBuffer();
+      return await image.jpeg({ quality: THUMBNAIL_QUALITY, mozjpeg: true }).toBuffer();
     } catch {
-      return buffer; // 손상된 파일 등으로 처리 실패하면 원본이라도 그대로 올린다.
+      return null; // 손상된 파일 등으로 실패하면 썸네일 없이 원본만 쓴다.
     }
   }
 
-  /** 랜덤 키를 만들어 버퍼를 업로드하고, 그 key 를 돌려준다(호출부가 "/uploads/<key>" 로 조립). */
+  /** 랜덤 키를 만들어 원본 버퍼를 그대로 업로드하고, 그 key 를 돌려준다(호출부가
+   * "/uploads/<key>" 로 조립). 원본은 손대지 않는다 - 압축/리사이즈가 필요하면 uploadImage를
+   * 쓴다. */
   async upload(buffer: Buffer, originalName: string, contentType?: string): Promise<{ key: string }> {
-    const ext = originalName.includes('.') ? originalName.slice(originalName.lastIndexOf('.')) : '';
-    const key = `${Array(32).fill(null).map(() => Math.round(Math.random() * 16).toString(16)).join('')}${ext}`;
-    const finalBuffer = await this.optimizeIfImage(buffer, contentType);
+    const key = this.randomKey(originalName);
     await this.client.send(new PutObjectCommand({
-      Bucket: this.bucket, Key: key, Body: finalBuffer, ContentType: contentType,
+      Bucket: this.bucket, Key: key, Body: buffer, ContentType: contentType,
     }));
     return { key };
+  }
+
+  /** 이미지 전용: 원본은 그대로 저장하고, 목록/그리드용 작은 썸네일을 "thumb_<key>"로 하나
+   * 더 만들어 둔다(움직이는 GIF/SVG는 썸네일 없이 원본만). 이미 있는 upload()와 별개 메서드로
+   * 둔 건, 게시글 첨부처럼 원본 그대로 필요한 파일(문서 등)에는 썸네일이 의미 없어서다. */
+  async uploadImage(buffer: Buffer, originalName: string, contentType?: string): Promise<{ key: string; thumbnailKey?: string }> {
+    const key = this.randomKey(originalName);
+    const thumbBuffer = await this.makeThumbnail(buffer, contentType);
+    await this.client.send(new PutObjectCommand({
+      Bucket: this.bucket, Key: key, Body: buffer, ContentType: contentType,
+    }));
+    if (!thumbBuffer) return { key };
+    const thumbnailKey = `${THUMBNAIL_PREFIX}${key}`;
+    await this.client.send(new PutObjectCommand({
+      Bucket: this.bucket, Key: thumbnailKey, Body: thumbBuffer, ContentType: contentType,
+    }));
+    return { key, thumbnailKey };
+  }
+
+  /** resolveThumbnail 처럼 원본 key/URL만 갖고 있을 때, 규칙대로 썸네일 key를 계산한다.
+   * 실제로 그 썸네일이 R2에 있는지는 보장 못 한다(우리가 만든 게 아닌 이미지일 수 있음) -
+   * 없으면 UploadsController가 그냥 404를 내려주고 프론트는 원본 url로 폴백한다. */
+  thumbnailKeyFor(urlOrKey: string): string {
+    return `${THUMBNAIL_PREFIX}${this.keyFromUrlOrKey(urlOrKey)}`;
   }
 
   /** DB의 File.url("/uploads/xxxx.ext")이나 순수 key 어느 쪽이 와도 key만 뽑아낸다. */

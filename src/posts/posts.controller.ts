@@ -70,24 +70,27 @@ export class PostsController {
   }
 
   // ✨ [신규 헬퍼] thumbnailUrl 우선, 없으면 본문 첫 <img> 정규식 fallback
-  private resolveThumbnail(thumbnailUrl: any, content: string | undefined): { url: string; name: string; type: string } | null {
-    if (thumbnailUrl) {
-      let normalizedUrl = String(thumbnailUrl);
+  // 이 이미지는 uploadEditorImage로 올라간 것이라 "thumb_<key>" 규칙의 썸네일이 R2에 이미
+  // 만들어져 있다 - 원본 대신 그 썸네일 주소를 그리드용으로 같이 넣어준다.
+  private resolveThumbnail(thumbnailUrl: any, content: string | undefined): { url: string; name: string; type: string; thumbnailUrl: string | null } | null {
+    const buildEntry = (rawUrl: string) => {
+      let normalizedUrl = rawUrl;
       if (normalizedUrl.includes('/uploads/')) {
         normalizedUrl = '/uploads/' + normalizedUrl.split('/uploads/')[1];
       }
-      return { url: normalizedUrl, name: 'editor_thumbnail', type: 'image' };
-    }
+      return {
+        url: normalizedUrl,
+        name: 'editor_thumbnail',
+        type: 'image',
+        thumbnailUrl: `/uploads/${this.r2.thumbnailKeyFor(normalizedUrl)}`,
+      };
+    };
+
+    if (thumbnailUrl) return buildEntry(String(thumbnailUrl));
 
     const imgRegex = /<img[^>]+src=["']([^"']+)["']/i;
     const match = content ? content.match(imgRegex) : null;
-    if (match && match[1]) {
-      let editorImgUrl = match[1];
-      if (editorImgUrl.includes('/uploads/')) {
-        editorImgUrl = '/uploads/' + editorImgUrl.split('/uploads/')[1];
-      }
-      return { url: editorImgUrl, name: 'editor_thumbnail', type: 'image' };
-    }
+    if (match && match[1]) return buildEntry(match[1]);
 
     return null;
   }
@@ -95,7 +98,9 @@ export class PostsController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('upload', { storage: memoryStorage() }))
   async uploadEditorImage(@UploadedFile() file: Express.Multer.File) {
-    const { key } = await this.r2.upload(file.buffer, file.originalname, file.mimetype);
+    // 본문에 박히는 이미지라 원본 그대로 올리되(화질 유지), 나중에 이 이미지가 게시글
+    // 대표 썸네일로 쓰일 수도 있어서 목록용 작은 썸네일도 같이 만들어 둔다.
+    const { key } = await this.r2.uploadImage(file.buffer, file.originalname, file.mimetype);
     return { url: `${API_PUBLIC_URL}/uploads/${key}` };
   }
 
@@ -116,11 +121,16 @@ export class PostsController {
       } = body;
 
       const dbFiles = await Promise.all((files ?? []).map(async (f) => {
-        const { key } = await this.r2.upload(f.buffer, f.originalname, f.mimetype);
+        const isImage = f.mimetype.startsWith('image/');
+        const uploaded: { key: string; thumbnailKey?: string } = isImage
+          ? await this.r2.uploadImage(f.buffer, f.originalname, f.mimetype)
+          : await this.r2.upload(f.buffer, f.originalname, f.mimetype);
+        const { key, thumbnailKey } = uploaded;
         return {
           url: `/uploads/${key}`,
           name: this.fixFileNameEncoding(f.originalname),
-          type: f.mimetype.startsWith('image/') ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file'),
+          type: isImage ? 'image' : (f.mimetype.startsWith('video/') ? 'video' : 'file'),
+          thumbnailUrl: thumbnailKey ? `/uploads/${thumbnailKey}` : null,
         };
       }));
 
@@ -253,11 +263,15 @@ export class PostsController {
       } else if (f.mimetype.includes('video') || f.originalname.endsWith('.mp4')) {
         type = 'video';
       }
-      const { key } = await this.r2.upload(f.buffer, f.originalname, f.mimetype);
+      const uploaded: { key: string; thumbnailKey?: string } = type === 'image'
+        ? await this.r2.uploadImage(f.buffer, f.originalname, f.mimetype)
+        : await this.r2.upload(f.buffer, f.originalname, f.mimetype);
+      const { key, thumbnailKey } = uploaded;
       return {
         url: `/uploads/${key}`,
         name: this.fixFileNameEncoding(f.originalname),
         type: type,
+        thumbnailUrl: thumbnailKey ? `/uploads/${thumbnailKey}` : null,
       };
     }));
 
@@ -305,11 +319,13 @@ export class PostsController {
       return { success: false, message: 'Post not found' };
     }
 
-    await Promise.all(postWithFiles.files.map((file) => {
-      if (!file.url.startsWith('/uploads/')) return Promise.resolve();
-      return this.r2.delete(this.r2.keyFromUrlOrKey(file.url)).catch((err) => {
+    await Promise.all(postWithFiles.files.map(async (file) => {
+      if (!file.url.startsWith('/uploads/')) return;
+      await this.r2.delete(this.r2.keyFromUrlOrKey(file.url)).catch((err) => {
         console.error(`Failed to delete R2 file: ${file.url}`, err);
       });
+      // 썸네일이 있으면(우리가 만든 것이면) 같이 지운다 - 없어도 delete는 조용히 무시된다.
+      await this.r2.delete(this.r2.thumbnailKeyFor(file.url)).catch(() => {});
     }));
 
     return this.prisma.$transaction(async (tx) => {
