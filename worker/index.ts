@@ -66,12 +66,40 @@ export class DaonBackendContainer extends Container<Env> {
   }
 }
 
+// 자주 안 바뀌는 공개 조회 API - 홈페이지가 새로고침될 때마다 매번 이 작은 컨테이너
+// 인스턴스를 거치지 않도록, Cloudflare 엣지(Cache API)에 짧게 캐싱해서 재방문/동시접속을
+// 훨씬 빠르게 만든다. 글자 그대로 시작하는 경로만(쿼리스트링 포함 전체 URL이 캐시 키) -
+// 관리자 전용 API(/main-slides 전체 목록, CRUD 등)는 대상이 아니다.
+const EDGE_CACHE_PATHS = ['/main-slides/exposed', '/company', '/posts', '/map-positions'];
+const EDGE_CACHE_SECONDS = 30;
+
+function isEdgeCacheable(request: Request): boolean {
+  if (request.method !== 'GET') return false;
+  const { pathname } = new URL(request.url);
+  return EDGE_CACHE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`) || pathname.startsWith(`${p}?`));
+}
+
 export default {
-  async fetch(request: Request, env: Env) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    const cache = (caches as unknown as { default: Cache }).default;
+    const cacheable = isEdgeCacheable(request);
+    if (cacheable) {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+    }
+
     // 컨테이너 인스턴스는 떠 있는 동안(sleepAfter 전) 새 이미지를 배포해도 재시작 전까지
     // 예전 코드를 계속 실행한다 - 배포 직후 바로 테스트하면 계속 예전 코드를 보게 되므로,
     // 코드가 바뀌는 배포 직후에는 이 이름을 한 번씩 bump해 강제로 새 인스턴스를 띄운다.
     const instance = env.DAON_BACKEND.getByName('daon-backend-v6');
-    return instance.fetch(request);
+    const response = await instance.fetch(request);
+
+    if (cacheable && response.ok) {
+      const toCache = new Response(response.body, response);
+      toCache.headers.set('Cache-Control', `public, max-age=${EDGE_CACHE_SECONDS}`);
+      ctx.waitUntil(cache.put(request, toCache.clone()));
+      return toCache;
+    }
+    return response;
   },
 } satisfies ExportedHandler<Env>;
