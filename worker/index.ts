@@ -68,9 +68,12 @@ export class DaonBackendContainer extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env) {
-    // 'daon-backend-v2' 가 최종 고정 이름 - 디버깅 중 여러 번 이름을 바꿔가며 인스턴스를
-    // 새로 띄웠던 이력이 있어서, 앞으로는 이 이름을 계속 유지한다(다시 바꾸지 말 것).
-    const instance = env.DAON_BACKEND.getByName('daon-backend-v2');
+    // 'daon-backend-v3' 가 최종 고정 이름 - 컨테이너 인스턴스는 이미 떠 있으면(sleepAfter
+    // 전이면) 새 이미지를 배포해도 재시작 전까지 예전 코드를 계속 실행한다. 계속 테스트하며
+    // 활동을 유지시켜 자연 재시작이 안 돼서 v2->v3로 한 번 더 바꿔 강제 재기동한다.
+    // *** 이제부터는 이 이름을 그대로 유지할 것 - 코드만 바뀌는 배포는 인스턴스가 알아서
+    // sleepAfter(10m) 이후 자연스럽게 새 이미지로 재시작된다. ***
+    const instance = env.DAON_BACKEND.getByName('daon-backend-v3');
     return instance.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
