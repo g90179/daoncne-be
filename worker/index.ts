@@ -91,7 +91,7 @@ export default {
     // 컨테이너 인스턴스는 떠 있는 동안(sleepAfter 전) 새 이미지를 배포해도 재시작 전까지
     // 예전 코드를 계속 실행한다 - 배포 직후 바로 테스트하면 계속 예전 코드를 보게 되므로,
     // 코드가 바뀌는 배포 직후에는 이 이름을 한 번씩 bump해 강제로 새 인스턴스를 띄운다.
-    const instance = env.DAON_BACKEND.getByName('daon-backend-v8');
+    const instance = env.DAON_BACKEND.getByName('daon-backend-v9');
     const response = await instance.fetch(request);
 
     if (cacheable && response.ok) {
