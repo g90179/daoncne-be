@@ -9,5 +9,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [PrismaModule, AuthModule],
   controllers: [MapPositionsController],
   providers: [MapPositionsService],
+  exports: [MapPositionsService],
 })
 export class MapPositionsModule {}

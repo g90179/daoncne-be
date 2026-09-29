@@ -70,7 +70,7 @@ export class DaonBackendContainer extends Container<Env> {
 // 인스턴스를 거치지 않도록, Cloudflare 엣지(Cache API)에 짧게 캐싱해서 재방문/동시접속을
 // 훨씬 빠르게 만든다. 글자 그대로 시작하는 경로만(쿼리스트링 포함 전체 URL이 캐시 키) -
 // 관리자 전용 API(/main-slides 전체 목록, CRUD 등)는 대상이 아니다.
-const EDGE_CACHE_PATHS = ['/main-slides/exposed', '/company', '/posts', '/map-positions'];
+const EDGE_CACHE_PATHS = ['/main-slides/exposed', '/company', '/posts', '/map-positions', '/home-bootstrap'];
 const EDGE_CACHE_SECONDS = 30;
 
 function isEdgeCacheable(request: Request): boolean {

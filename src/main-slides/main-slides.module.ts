@@ -9,5 +9,6 @@ import { StorageModule } from '../storage/storage.module'; // 업로드 파일 �
   imports: [StorageModule],
   controllers: [MainSlidesController],
   providers: [MainSlidesService, PrismaService],
+  exports: [MainSlidesService],
 })
 export class MainSlidesModule {}

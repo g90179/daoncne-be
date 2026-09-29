@@ -19,6 +19,7 @@ import { VisitorModule } from './visitor/visitor.module'; // 방문자 통계
 import { BrochureModule } from './brochure/brochure.module'; // 회사소개 PDF 다운로드
 import { StampModule } from './stamp/stamp.module'; // 회사소개 PDF 다운로드
 import { StorageModule } from './storage/storage.module'; // 업로드 파일 저장(R2)
+import { HomeModule } from './home/home.module'; // 홈페이지 진입 시 API 4개를 1번으로 묶음
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { StorageModule } from './storage/storage.module'; // 업로드 파일 �
     VisitorModule,
     BrochureModule,
     StorageModule,
+    HomeModule,
   ],
   controllers: [AppController],
   providers: [
