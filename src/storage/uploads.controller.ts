@@ -17,9 +17,20 @@ import { Public } from '../auth/decorators/public.decorator';
 export class UploadsController {
   constructor(private readonly r2: R2Service) {}
 
+  // 마이그레이션 이전 main-slides 코드가 "/uploads/slides/xxx.mp4"처럼 하위 폴더를 쓰던
+  // 시절의 URL이 DB에 남아있어, 그 경로도 따로 받는다(path-to-regexp v8은 Express 4 스타일
+  // ":key*" 와일드카드를 지원하지 않아 명시적으로 라우트를 하나 더 둔다). 실제 R2 키는
+  // 항상 파일명만(마지막 구간)이라 r2.keyFromUrlOrKey로 폴더 부분을 잘라낸다.
+  @Public()
+  @Get('slides/:key')
+  async serveSlide(@Param('key') keyParam: string, @Res() res: Response) {
+    return this.serve(keyParam, res);
+  }
+
   @Public()
   @Get(':key')
-  async serve(@Param('key') key: string, @Res() res: Response) {
+  async serve(@Param('key') keyParam: string, @Res() res: Response) {
+    const key = this.r2.keyFromUrlOrKey(keyParam);
     const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/+$/, '');
     if (publicBase) {
       res.redirect(302, `${publicBase}/${encodeURIComponent(key)}`);
