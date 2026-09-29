@@ -1,11 +1,12 @@
 //daon-backend\src\main-slides\main-slides.controller.ts
-import { Controller, Get, Post, Body, Param, Put, Delete, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Patch, Delete, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { R2Service } from '../storage/r2.service';
 import { MainSlidesService } from './main-slides.service';
 import { CreateMainSlideDto } from './dto/create-main-slide.dto';
 import { UpdateMainSlideDto } from './dto/update-main-slide.dto';
+import { ReorderMainSlideDto } from './dto/reorder-main-slide.dto';
 import { Public } from '../auth/decorators/public.decorator'; // ✨ import 추가
 
 @Controller('main-slides')
@@ -54,6 +55,12 @@ export class MainSlidesController {
   @Get('exposed') // 🌍 대문 배너 호출 전용 라우터 (Public)
   findExposed() {
     return this.mainSlidesService.findExposed();
+  }
+
+  // 👑 관리자: 드래그로 정렬한 순서 저장 - ':id' 보다 먼저 매칭되도록 위에 둔다.
+  @Patch('reorder')
+  reorder(@Body() dto: ReorderMainSlideDto) {
+    return this.mainSlidesService.reorder(dto.ids);
   }
 
   @Get(':id')

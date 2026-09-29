@@ -141,6 +141,7 @@ model MainSlide {
   description String?  // 배너 간단 설명
   videoUrl    String   // 영상 파일 경로 또는 외부 스트리밍 URL
   isExposed   Boolean  @default(false) // 메인 노출 여부 (체크 시 노출)
+  order       Int      @default(0)     // 노출 순서(작을수록 먼저) - 관리자 페이지 드래그로 변경
   duration    Int      @default(5)     // 슬라이드 유지 시간 (초 단위, 기본값 5초)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
