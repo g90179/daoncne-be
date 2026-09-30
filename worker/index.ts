@@ -94,7 +94,7 @@ export default {
     // locationHint 없이는 컨테이너가 서울 RDS와 상관없는 리전(실제로 캘리포니아까지 배치된
     // 적이 있었다)에 뜰 수 있어 DB 왕복마다 불필요한 지연이 생긴다 - apac 힌트로 서울에 더
     // 가까운 곳에 뜨도록 유도한다.
-    const instance = env.DAON_BACKEND.getByName('daon-backend-v17', { locationHint: 'apac-ne' });
+    const instance = env.DAON_BACKEND.getByName('daon-backend-v18', { locationHint: 'apac-ne' });
     const response = await instance.fetch(request);
 
     if (cacheable && response.ok) {
