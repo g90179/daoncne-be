@@ -23,8 +23,10 @@ import { Public } from '../auth/decorators/public.decorator';
 import type { Response } from 'express';
 
 // 에디터가 본문 HTML에 직접 박아 넣는 <img> 경로라 프론트 origin 기준 상대경로로 두면 안 되고,
-// 백엔드 자신의 공개 주소를 절대경로로 써야 한다(예전엔 gabia 주소가 하드코딩돼 있었다).
-const API_PUBLIC_URL = (process.env.API_PUBLIC_URL || 'https://g90179.gabia.io').replace(/\/+$/, '');
+// 백엔드 자신의 공개 주소를 절대경로로 써야 한다. 폴백 기본값은 반드시 이 백엔드(DAON) 자신의
+// 주소여야 한다 - 예전엔 G90179 주소가 잘못 하드코딩돼 있어서, API_PUBLIC_URL 시크릿이 아직
+// 등록되기 전에 작성된 게시글 본문에 죽은 링크가 그대로 박히는 사고가 있었다.
+const API_PUBLIC_URL = (process.env.API_PUBLIC_URL || 'https://daoncne-be.gusqlslee.workers.dev').replace(/\/+$/, '');
 
 @Controller('posts')
 export class PostsController {
