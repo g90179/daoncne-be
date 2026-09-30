@@ -91,7 +91,10 @@ export default {
     // 컨테이너 인스턴스는 떠 있는 동안(sleepAfter 전) 새 이미지를 배포해도 재시작 전까지
     // 예전 코드를 계속 실행한다 - 배포 직후 바로 테스트하면 계속 예전 코드를 보게 되므로,
     // 코드가 바뀌는 배포 직후에는 이 이름을 한 번씩 bump해 강제로 새 인스턴스를 띄운다.
-    const instance = env.DAON_BACKEND.getByName('daon-backend-v15');
+    // locationHint 없이는 컨테이너가 서울 RDS와 상관없는 리전(실제로 캘리포니아까지 배치된
+    // 적이 있었다)에 뜰 수 있어 DB 왕복마다 불필요한 지연이 생긴다 - apac 힌트로 서울에 더
+    // 가까운 곳에 뜨도록 유도한다.
+    const instance = env.DAON_BACKEND.getByName('daon-backend-v16', { locationHint: 'apac' });
     const response = await instance.fetch(request);
 
     if (cacheable && response.ok) {
