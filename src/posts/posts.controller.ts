@@ -103,7 +103,10 @@ export class PostsController {
     // 본문에 박히는 이미지라 원본 그대로 올리되(화질 유지), 나중에 이 이미지가 게시글
     // 대표 썸네일로 쓰일 수도 있어서 목록용 작은 썸네일도 같이 만들어 둔다.
     const { key } = await this.r2.uploadImage(file.buffer, file.originalname, file.mimetype);
-    return { url: `${API_PUBLIC_URL}/uploads/${key}` };
+    // R2 커스텀 도메인이 있으면 백엔드 컨테이너를 거치는 리다이렉트 없이 곧장 그 주소를 쓴다
+    // (없을 때만 예전처럼 API_PUBLIC_URL 경유 상대경로로 폴백).
+    const publicUrl = this.r2.publicUrl(key);
+    return { url: publicUrl.startsWith('http') ? publicUrl : `${API_PUBLIC_URL}${publicUrl}` };
   }
 
   // 1. 게시글 생성 로직 수정

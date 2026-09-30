@@ -19,6 +19,11 @@ import sharp from 'sharp';
 const THUMBNAIL_PREFIX = 'thumb_';
 const THUMBNAIL_WIDTH = 480;
 const THUMBNAIL_QUALITY = 70;
+// 스마트폰 카메라 원본(4000x3000, 4~5MB급)을 손대지 않고 그대로 본문에 박아 넣으면 포트폴리오
+// 상세 페이지 하나에 사진 4~5장만 있어도 로딩이 눈에 띄게 느려진다 - 웹에서 보여주기엔
+// 과한 해상도라 본문용 이미지도(썸네일과 별개로) 적당한 크기로 줄여서 저장한다.
+const CONTENT_MAX_WIDTH = 1920;
+const CONTENT_JPEG_QUALITY = 82;
 // 키가 항상 새 무작위 문자열이라 같은 키에 다른 내용이 들어올 일이 없다 - 파일 자체에
 // "1년 동안 캐싱해도 된다"는 메타데이터를 심어 둬서, 커스텀 도메인을 붙였을 때 Cloudflare
 // 엣지 캐시와 브라우저 캐시가 이 힌트를 그대로 활용하게 한다.
@@ -74,14 +79,32 @@ export class R2Service {
     return { key };
   }
 
-  /** 이미지 전용: 원본은 그대로 저장하고, 목록/그리드용 작은 썸네일을 "thumb_<key>"로 하나
-   * 더 만들어 둔다(움직이는 GIF/SVG는 썸네일 없이 원본만). 이미 있는 upload()와 별개 메서드로
-   * 둔 건, 게시글 첨부처럼 원본 그대로 필요한 파일(문서 등)에는 썸네일이 의미 없어서다. */
+  /** 본문/그리드에 쓰이는 이미지 크기로 다운스케일한다(원본 화질 보존이 목적이 아니라 웹에
+   * 보여줄 용도라 4000px대 원본을 그대로 둘 이유가 없다) - 움직이는 GIF/SVG는 그대로 둔다. */
+  private async makeContentImage(buffer: Buffer, contentType?: string): Promise<Buffer> {
+    if (!contentType?.startsWith('image/') || contentType === 'image/gif' || contentType === 'image/svg+xml') {
+      return buffer;
+    }
+    try {
+      const image = sharp(buffer).resize({ width: CONTENT_MAX_WIDTH, withoutEnlargement: true });
+      if (contentType === 'image/png') return await image.png({ quality: CONTENT_JPEG_QUALITY, compressionLevel: 8 }).toBuffer();
+      if (contentType === 'image/webp') return await image.webp({ quality: CONTENT_JPEG_QUALITY }).toBuffer();
+      return await image.jpeg({ quality: CONTENT_JPEG_QUALITY, mozjpeg: true }).toBuffer();
+    } catch {
+      return buffer; // 손상된 파일 등으로 실패하면 원본 그대로 올린다.
+    }
+  }
+
+  /** 이미지 전용: 본문에 쓸 크기로 줄인 이미지를 저장하고, 목록/그리드용 작은 썸네일을
+   * "thumb_<key>"로 하나 더 만들어 둔다(움직이는 GIF/SVG는 썸네일 없이 원본만). 이미 있는
+   * upload()와 별개 메서드로 둔 건, 게시글 첨부처럼 원본 그대로 필요한 파일(문서 등)에는
+   * 리사이즈/썸네일이 의미 없어서다. */
   async uploadImage(buffer: Buffer, originalName: string, contentType?: string): Promise<{ key: string; thumbnailKey?: string }> {
     const key = this.randomKey(originalName);
-    const thumbBuffer = await this.makeThumbnail(buffer, contentType);
+    const contentBuffer = await this.makeContentImage(buffer, contentType);
+    const thumbBuffer = await this.makeThumbnail(contentBuffer, contentType);
     await this.client.send(new PutObjectCommand({
-      Bucket: this.bucket, Key: key, Body: buffer, ContentType: contentType,
+      Bucket: this.bucket, Key: key, Body: contentBuffer, ContentType: contentType,
       CacheControl: IMMUTABLE_CACHE_CONTROL,
     }));
     if (!thumbBuffer) return { key };
@@ -91,6 +114,15 @@ export class R2Service {
       CacheControl: IMMUTABLE_CACHE_CONTROL,
     }));
     return { key, thumbnailKey };
+  }
+
+  /** R2 커스텀 도메인(R2_PUBLIC_URL)이 등록돼 있으면 그 주소를 바로 돌려준다 - 백엔드
+   * 컨테이너(UploadsController)를 거쳐 301 리다이렉트로 한 번 더 왕복하는 대신, 브라우저가
+   * 처음부터 R2/Cloudflare 엣지로 곧장 요청하게 하기 위해서다. 등록 안 돼 있으면(비공개
+   * 버킷) 기존 방식대로 "/uploads/<key>" 상대경로를 돌려준다. */
+  publicUrl(key: string): string {
+    const base = process.env.R2_PUBLIC_URL?.replace(/\/+$/, '');
+    return base ? `${base}/${encodeURIComponent(key)}` : `/uploads/${key}`;
   }
 
   /** resolveThumbnail 처럼 원본 key/URL만 갖고 있을 때, 규칙대로 썸네일 key를 계산한다.
