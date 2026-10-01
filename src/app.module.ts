@@ -20,6 +20,7 @@ import { BrochureModule } from './brochure/brochure.module'; // 회사소개 PDF
 import { StampModule } from './stamp/stamp.module'; // 회사소개 PDF 다운로드
 import { StorageModule } from './storage/storage.module'; // 업로드 파일 저장(R2)
 import { HomeModule } from './home/home.module'; // 홈페이지 진입 시 API 4개를 1번으로 묶음
+import { SystemModule } from './system/system.module'; // 운영 배포 버전 확인
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { HomeModule } from './home/home.module'; // 홈페이지 진입 시 API 
     BrochureModule,
     StorageModule,
     HomeModule,
+    SystemModule,
   ],
   controllers: [AppController],
   providers: [
