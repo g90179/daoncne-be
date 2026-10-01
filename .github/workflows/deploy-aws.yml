@@ -1,0 +1,41 @@
+# main 에 푸시하면 AWS Lightsail(서울) 서버에 DAON 백엔드를 배포한다.
+# 서버의 /opt/apps/deploy-daon.sh 가 이미지 빌드 -> 재기동 -> 헬스체크(/company)를 하고, 실패하면 직전 이미지로 되돌린다.
+# 필요한 저장소 Secrets: LIGHTSAIL_HOST, LIGHTSAIL_SSH_KEY, LIGHTSAIL_KNOWN_HOSTS
+name: Deploy backend to AWS Lightsail
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'worker/**'        # Cloudflare 프록시 Worker 전용(Workers Builds 가 따로 배포)
+      - 'wrangler.jsonc'
+      - '**/*.md'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # 저장소에 남아 있는 옛 업로드 파일·로그는 이미지에 필요 없어 빼고 보낸다(파일은 R2 에 있음).
+      - name: Package source
+        run: git archive --format=tar.gz -o daon-src.tgz HEAD -- . ':(exclude)uploads' ':(exclude)nohup.out' ':(exclude)backend.out' ':(exclude)1'
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Upload source
+        run: scp -o BatchMode=yes daon-src.tgz "ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/opt/apps/daon-src.tgz"
+
+      - name: Build, restart and health check
+        run: ssh -o BatchMode=yes "ubuntu@${{ secrets.LIGHTSAIL_HOST }}" "bash /opt/apps/deploy-daon.sh ${GITHUB_SHA::7}"
