@@ -16,7 +16,7 @@ export class RssController {
     const feed = new RSS({
       title: '다온씨엔이(DAON C&E)',
       description: '다온씨엔이의 최신 포트폴리오와 소식을 전해드립니다.',
-      feed_url: 'https://g90179.gabia.io/rss', // 피드 자체 주소
+      feed_url: 'https://daoncne.co.kr/rss.xml', // 피드 자체 주소(프론트 Worker 가 이 경로를 백엔드 /rss 로 넘긴다)
       site_url: 'https://daoncne.co.kr',
       language: 'ko',
       pubDate: new Date().toUTCString(),
